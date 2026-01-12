@@ -57,6 +57,24 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        hotel: {
+          available: "hsl(var(--hotel-available))",
+          "available-foreground": "hsl(var(--hotel-available-foreground))",
+          occupied: "hsl(var(--hotel-occupied))",
+          "occupied-foreground": "hsl(var(--hotel-occupied-foreground))",
+          success: "hsl(var(--hotel-success))",
+          "success-foreground": "hsl(var(--hotel-success-foreground))",
+          warning: "hsl(var(--hotel-warning))",
+          "warning-foreground": "hsl(var(--hotel-warning-foreground))",
+          info: "hsl(var(--hotel-info))",
+          "info-foreground": "hsl(var(--hotel-info-foreground))",
+        },
+        category: {
+          room: "hsl(var(--category-room))",
+          guest: "hsl(var(--category-guest))",
+          direct: "hsl(var(--category-direct))",
+          admin: "hsl(var(--category-admin))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,20 +83,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
