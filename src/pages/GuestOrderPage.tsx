@@ -9,6 +9,7 @@ import { CategoryCard } from '@/components/CategoryCard';
 import { MenuItemCard } from '@/components/MenuItemCard';
 import { OrderSummary } from '@/components/OrderSummary';
 import { Receipt } from '@/components/Receipt';
+import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -53,7 +54,7 @@ const GuestOrderPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-12">
       <PageHeader
         title="Pesanan Tamu Hotel"
         subtitle="Pesanan kantin dengan nomor kamar"
@@ -167,6 +168,9 @@ const GuestOrderPage = () => {
       {receipt && (
         <Receipt data={receipt} onClose={closeReceipt} onPrint={handlePrint} />
       )}
+
+      {/* Footer Branding */}
+      <Footer />
     </div>
   );
 };

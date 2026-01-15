@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { DashboardCard } from '@/components/DashboardCard';
+import { Footer } from '@/components/Footer';
 import { BedDouble, UtensilsCrossed, Wallet, Settings } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-12">
       {/* Header */}
       <header className="border-b bg-card shadow-sm">
         <div className="container flex flex-col items-center justify-center px-4 py-8">
@@ -77,6 +78,9 @@ const Dashboard = () => {
           </ul>
         </div>
       </main>
+
+      {/* Footer Branding */}
+      <Footer />
     </div>
   );
 };

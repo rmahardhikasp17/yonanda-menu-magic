@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Room } from '@/types/hotel';
+import { Room, ActiveGuest, PaymentMethod } from '@/types/hotel';
 import { generateInitialRooms } from '@/data/roomData';
 
 const STORAGE_KEY = 'hotel-yonanda-rooms';
@@ -21,15 +21,23 @@ export function useRooms() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
   }, [rooms]);
 
-  const checkIn = useCallback((roomNumber: string, guestName?: string) => {
+  const checkIn = useCallback((
+    roomNumber: string,
+    guest: ActiveGuest,
+    paymentMethod: PaymentMethod
+  ) => {
     setRooms((prev) =>
       prev.map((room) =>
         room.number === roomNumber
           ? {
               ...room,
               isOccupied: true,
-              guestName: guestName || undefined,
+              guestName: guest.name,
+              guestAddress: guest.address,
+              guestKtp: guest.ktpNumber,
+              guestPhone: guest.phoneNumber,
               checkInTime: new Date().toISOString(),
+              paymentMethod,
             }
           : room
       )
@@ -46,7 +54,11 @@ export function useRooms() {
             ...room,
             isOccupied: false,
             guestName: undefined,
+            guestAddress: undefined,
+            guestKtp: undefined,
+            guestPhone: undefined,
             checkInTime: undefined,
+            paymentMethod: undefined,
           };
         }
         return room;

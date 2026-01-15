@@ -8,6 +8,7 @@ import { CategoryCard } from '@/components/CategoryCard';
 import { MenuItemCard } from '@/components/MenuItemCard';
 import { OrderSummary } from '@/components/OrderSummary';
 import { Receipt } from '@/components/Receipt';
+import { Footer } from '@/components/Footer';
 
 const DirectOrderPage = () => {
   const { getMenuByCategory } = useMenu();
@@ -45,7 +46,7 @@ const DirectOrderPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-12">
       <PageHeader
         title="Pesanan Langsung"
         subtitle="Pesanan non-tamu, langsung bayar"
@@ -105,6 +106,9 @@ const DirectOrderPage = () => {
       {receipt && (
         <Receipt data={receipt} onClose={closeReceipt} onPrint={handlePrint} />
       )}
+
+      {/* Footer Branding */}
+      <Footer />
     </div>
   );
 };
