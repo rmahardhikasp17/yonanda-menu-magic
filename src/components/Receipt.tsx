@@ -125,6 +125,12 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
           <p className="mt-1 text-center text-xs text-muted-foreground">
             Maksimal check-out jam 12.00 WIB
           </p>
+
+          <div className="my-4 border-t border-dashed border-border" />
+
+          <p className="text-center text-xs text-muted-foreground">
+            Developed System by Nekat Digital
+          </p>
         </div>
 
         {/* Print button */}

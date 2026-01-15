@@ -1,6 +1,17 @@
 // Hotel Room Types
 export type RoomType = 'standar' | 'superior' | 'suite' | 'family' | 'deluxe';
 
+// Payment Method
+export type PaymentMethod = 'cash' | 'qris';
+
+// Active Guest Data (session-based, for multi-room check-in)
+export interface ActiveGuest {
+  name: string;
+  address: string;
+  ktpNumber: string;
+  phoneNumber?: string;
+}
+
 export interface Room {
   number: string;
   type: RoomType;
@@ -8,7 +19,11 @@ export interface Room {
   facilities: string[];
   isOccupied: boolean;
   guestName?: string;
+  guestAddress?: string;
+  guestKtp?: string;
+  guestPhone?: string;
   checkInTime?: string;
+  paymentMethod?: PaymentMethod;
 }
 
 export interface RoomTypeInfo {

@@ -5,6 +5,7 @@ import { menuCategories } from '@/data/menuData';
 import { formatCurrency } from '@/data/roomData';
 import { PageHeader } from '@/components/PageHeader';
 import { CategoryCard } from '@/components/CategoryCard';
+import { Footer } from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -101,7 +102,7 @@ const AdminPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-12">
       <PageHeader
         title="Admin Menu"
         subtitle="Kelola daftar dan harga menu"
@@ -220,6 +221,9 @@ const AdminPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Footer Branding */}
+      <Footer />
     </div>
   );
 };
