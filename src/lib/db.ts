@@ -7,14 +7,16 @@
  */
 
 const DB_NAME = 'hotel_yonanda_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // v3: Added audit_log and owner_config stores
 
 // Object Store Names
-const STORES = {
+export const STORES = {
   GUESTS: 'guests',
   ROOMS: 'rooms',
   MENUS: 'menus',
   ORDERS_TEMP: 'orders_temp',
+  AUDIT_LOG: 'audit_log',
+  OWNER_CONFIG: 'owner_config',
 } as const;
 
 // ============================================
@@ -129,6 +131,19 @@ export function initDB(): Promise<IDBDatabase> {
         orderStore.createIndex('created_at', 'created_at', { unique: false });
       }
 
+      // v3: Create audit_log store
+      if (!db.objectStoreNames.contains(STORES.AUDIT_LOG)) {
+        const auditStore = db.createObjectStore(STORES.AUDIT_LOG, { keyPath: 'id' });
+        auditStore.createIndex('action', 'action', { unique: false });
+        auditStore.createIndex('counterType', 'counterType', { unique: false });
+        auditStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+
+      // v3: Create owner_config store
+      if (!db.objectStoreNames.contains(STORES.OWNER_CONFIG)) {
+        db.createObjectStore(STORES.OWNER_CONFIG, { keyPath: 'key' });
+      }
+
       // Migration from v1 to v2: Add active_rooms field to existing guests
       if (oldVersion < 2) {
         const transaction = (event.target as IDBOpenDBRequest).transaction;
@@ -154,8 +169,9 @@ export function initDB(): Promise<IDBDatabase> {
 
 /**
  * Get database instance (auto-init if needed)
+ * Exported for use by audit-log module
  */
-async function getDB(): Promise<IDBDatabase> {
+export async function getDB(): Promise<IDBDatabase> {
   if (!dbInstance) {
     return initDB();
   }
@@ -645,5 +661,3 @@ export async function resetDatabase(): Promise<void> {
   });
 }
 
-// Export store names for external use
-export { STORES };

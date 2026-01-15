@@ -1,12 +1,21 @@
+/**
+ * Check-In Receipt Component - Thermal 58mm Optimized
+ * 
+ * Professional check-in receipt for thermal printers
+ * - 58mm paper width
+ * - Payment method selection
+ * - Auto-print on confirmation
+ */
+
 import { useState } from 'react';
 import { PaymentMethod } from '@/types/hotel';
+import { useReceiptCounter } from '@/hooks/useReceiptCounter';
 import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Printer, X, Banknote, QrCode } from 'lucide-react';
 
-// Simplified interfaces for CheckInReceipt
 interface CheckInReceiptRoom {
   number: string;
   type: string;
@@ -36,145 +45,191 @@ export function CheckInReceipt({
   onCancel,
 }: CheckInReceiptProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [receiptNumber, setReceiptNumber] = useState<string | null>(null);
+  const { getNextReceiptNumber, previewNextNumber } = useReceiptCounter();
   const typeInfo = getRoomTypeInfo(room.type);
   const now = new Date();
 
+  // Show preview number, generate actual on confirm
+  const displayNumber = receiptNumber || previewNextNumber('checkin');
+
   const handleConfirm = () => {
     if (paymentMethod) {
-      onConfirm(paymentMethod);
+      // Generate actual receipt number
+      const actualNumber = getNextReceiptNumber('checkin');
+      setReceiptNumber(actualNumber);
+
+      // Trigger print then confirm
+      setTimeout(() => {
+        window.print();
+        onConfirm(paymentMethod);
+      }, 100);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-      <div className="w-full max-w-md max-h-[95vh] flex flex-col rounded-2xl bg-white shadow-2xl my-auto">
-        {/* Header actions */}
-        <div className="flex items-center justify-between border-b p-4 no-print flex-shrink-0">
-          <h2 className="text-lg font-bold text-foreground">Preview Nota Check-In</h2>
+      <div className="w-full max-w-sm max-h-[95vh] flex flex-col rounded-xl bg-white shadow-2xl my-auto">
+
+        {/* Header - NOT PRINTED */}
+        <div className="flex items-center justify-between border-b p-3 no-print flex-shrink-0">
+          <h2 className="text-base font-bold">Preview Nota Check-In</h2>
           <Button variant="ghost" size="icon" onClick={onCancel}>
             <X className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Receipt content - scrollable */}
-        <div className="print-area p-6 flex-1 overflow-y-auto">
-          <div className="text-center">
-            <img
-              src="/logo-small.png"
-              alt="Hotel Yonanda"
-              className="mx-auto mb-2 h-16 w-16 object-contain"
-            />
-            <h1 className="text-2xl font-bold text-foreground">HOTEL YONANDA</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Terima Kasih Atas Kunjungan Anda</p>
+        {/* ===== PRINT AREA START ===== */}
+        <div className="print-area p-4 font-mono text-xs bg-white flex-1 overflow-y-auto">
+
+          {/* Header */}
+          <div className="receipt-header text-center">
+            <div className="text-sm font-bold">HOTEL YONANDA</div>
+            <div className="text-[10px]">Terima Kasih Atas</div>
+            <div className="text-[10px]">Kunjungan Anda</div>
           </div>
 
-          <div className="my-4 text-center text-sm text-muted-foreground">
-            <p>{format(now, 'EEEE, dd MMMM yyyy', { locale: id })}</p>
-            <p>Jam: {format(now, 'HH:mm', { locale: id })}</p>
-          </div>
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
-          <div className="my-4 border-t border-dashed border-border" />
-
-          <p className="mb-3 text-center font-semibold text-foreground">CHECK-IN KAMAR</p>
-
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">No. Kamar:</span>
-              <span className="font-medium">{room.number}</span>
+          {/* Date & Time */}
+          <div className="space-y-0.5">
+            <div className="receipt-row flex justify-between">
+              <span>Tanggal</span>
+              <span>{format(now, 'dd/MM/yyyy', { locale: id })}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tipe:</span>
-              <span className="font-medium">{typeInfo?.label}</span>
+            <div className="receipt-row flex justify-between">
+              <span>Jam</span>
+              <span>{format(now, 'HH:mm', { locale: id })}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tarif/Malam:</span>
-              <span className="font-medium">{formatCurrency(room.rate)}</span>
+            <div className="receipt-row flex justify-between">
+              <span>Jenis</span>
+              <span>CHECK-IN</span>
             </div>
           </div>
 
-          <div className="my-4 border-t border-dashed border-border" />
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Nama Tamu:</span>
-              <span className="font-medium">{guest.name}</span>
+          {/* Receipt Number */}
+          <div className="receipt-number text-center font-bold text-sm">
+            No: {displayNumber}
+          </div>
+
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+
+          {/* Room Info */}
+          <div className="text-center font-bold text-[11px] mb-1">DATA KAMAR</div>
+          <div className="space-y-0.5">
+            <div className="receipt-row flex justify-between">
+              <span>No. Kamar</span>
+              <span>{room.number}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">No. KTP:</span>
-              <span className="font-medium">{maskedKtp}</span>
+            <div className="receipt-row flex justify-between">
+              <span>Tipe</span>
+              <span>{typeInfo?.label || room.type}</span>
+            </div>
+            <div className="receipt-row flex justify-between">
+              <span>Tarif/Mlm</span>
+              <span>{formatCurrency(room.rate)}</span>
             </div>
           </div>
 
-          <div className="my-4 border-t border-dashed border-border" />
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
+          {/* Guest Info */}
+          <div className="text-center font-bold text-[11px] mb-1">DATA TAMU</div>
+          <div className="space-y-0.5">
+            <div className="receipt-row flex justify-between">
+              <span>Nama</span>
+              <span className="text-right max-w-[100px] truncate">{guest.name}</span>
+            </div>
+            <div className="receipt-row flex justify-between">
+              <span>No. KTP</span>
+              <span>{maskedKtp}</span>
+            </div>
+          </div>
+
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+
+          {/* Payment Method - shown on print */}
+          {paymentMethod && (
+            <>
+              <div className="receipt-row flex justify-between font-bold">
+                <span>Bayar</span>
+                <span>{paymentMethod === 'cash' ? 'CASH' : 'QRIS'}</span>
+              </div>
+              <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+            </>
+          )}
+
+          {/* Warning */}
+          <div className="receipt-warning border border-dashed border-gray-400 p-1 text-center text-[10px]">
+            <div>⚠️ PENTING ⚠️</div>
+            <div>Max Check-out 12.00 WIB</div>
+          </div>
+
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+
+          {/* Footer */}
+          <div className="receipt-footer text-center text-[9px] text-gray-600">
+            <div>================================</div>
+            <div>Developed System by</div>
+            <div>Nekat Digital</div>
+            <div>================================</div>
+          </div>
+
+        </div>
+        {/* ===== PRINT AREA END ===== */}
+
+        {/* Payment Selection & Actions - NOT PRINTED */}
+        <div className="border-t p-3 no-print flex-shrink-0 space-y-3">
           {/* Payment Method Selection */}
-          <div className="mb-4">
-            <p className="mb-3 text-sm font-medium text-foreground">Metode Pembayaran:</p>
-            <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs font-medium mb-2">Metode Pembayaran:</p>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setPaymentMethod('cash')}
-                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === 'cash'
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border hover:border-primary/50'
+                className={`flex items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all ${paymentMethod === 'cash'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-300'
                   }`}
               >
-                <Banknote className={`h-6 w-6 ${paymentMethod === 'cash' ? 'text-primary' : 'text-muted-foreground'}`} />
-                <span className={`text-sm font-medium ${paymentMethod === 'cash' ? 'text-primary' : 'text-foreground'}`}>
+                <Banknote className={`h-5 w-5 ${paymentMethod === 'cash' ? 'text-blue-500' : 'text-gray-400'}`} />
+                <span className={`text-sm font-medium ${paymentMethod === 'cash' ? 'text-blue-500' : 'text-gray-600'}`}>
                   Cash
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentMethod('qris')}
-                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === 'qris'
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border hover:border-primary/50'
+                className={`flex items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all ${paymentMethod === 'qris'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-300'
                   }`}
               >
-                <QrCode className={`h-6 w-6 ${paymentMethod === 'qris' ? 'text-primary' : 'text-muted-foreground'}`} />
-                <span className={`text-sm font-medium ${paymentMethod === 'qris' ? 'text-primary' : 'text-foreground'}`}>
+                <QrCode className={`h-5 w-5 ${paymentMethod === 'qris' ? 'text-blue-500' : 'text-gray-400'}`} />
+                <span className={`text-sm font-medium ${paymentMethod === 'qris' ? 'text-blue-500' : 'text-gray-600'}`}>
                   QRIS
                 </span>
               </button>
             </div>
           </div>
 
-          <div className="my-4 rounded-lg bg-hotel-warning/10 p-3">
-            <p className="text-center text-sm font-medium text-hotel-warning">
-              ⚠️ CATATAN PENTING ⚠️
-            </p>
-            <p className="mt-1 text-center text-sm text-hotel-warning">
-              Maksimal Check-out Jam 12.00 WIB
-            </p>
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onCancel} className="flex-1">
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirm}
+              disabled={!paymentMethod}
+              className="flex-1"
+              size="lg"
+            >
+              <Printer className="mr-2 h-4 w-4" />
+              Cetak & Check-In
+            </Button>
           </div>
-
-          <div className="my-4 border-t border-dashed border-border" />
-
-          <p className="text-center text-sm text-muted-foreground">Terima Kasih</p>
-          <p className="text-center text-sm text-muted-foreground">Selamat Menikmati!</p>
-
-          <div className="my-4 border-t border-dashed border-border" />
-
-          <p className="text-center text-xs text-muted-foreground">
-            Developed System by Nekat Digital
-          </p>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-3 border-t p-4 no-print flex-shrink-0">
-          <Button variant="outline" onClick={onCancel} className="flex-1">
-            Batal
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            disabled={!paymentMethod}
-            className="flex-1 touch-button"
-            size="lg"
-          >
-            <Printer className="mr-2 h-5 w-5" />
-            Cetak & Check-In
-          </Button>
         </div>
       </div>
     </div>

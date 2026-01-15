@@ -1,3 +1,12 @@
+/**
+ * Receipt Component - Thermal 58mm Optimized
+ * 
+ * Professional receipt layout for thermal printers
+ * - 58mm paper width (~48mm printable)
+ * - Monospace font
+ * - Auto-print on confirmation
+ */
+
 import { ReceiptData } from '@/types/hotel';
 import { formatCurrency } from '@/data/roomData';
 import { format } from 'date-fns';
@@ -11,136 +20,172 @@ interface ReceiptProps {
   onPrint: () => void;
 }
 
+// Get receipt type label
+function getReceiptTypeLabel(type: string): string {
+  switch (type) {
+    case 'room': return 'CHECK-OUT';
+    case 'canteen-guest': return 'KANTIN TAMU';
+    case 'canteen-direct': return 'KANTIN NON-TAMU';
+    default: return 'NOTA';
+  }
+}
+
 export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'dd MMMM yyyy, HH:mm', { locale: id });
+    return format(new Date(dateString), 'dd/MM/yyyy', { locale: id });
+  };
+
+  const formatTime = (dateString: string) => {
+    return format(new Date(dateString), 'HH:mm', { locale: id });
+  };
+
+  // Trigger print + close
+  const handlePrint = () => {
+    onPrint();
+    window.print();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-        {/* Header actions */}
-        <div className="flex items-center justify-between border-b p-4 no-print">
-          <h2 className="text-lg font-bold text-foreground">Preview Nota</h2>
+      <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl">
+        {/* Header actions - NOT PRINTED */}
+        <div className="flex items-center justify-between border-b p-3 no-print">
+          <h2 className="text-base font-bold">Preview Nota</h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Receipt content */}
-        <div className="print-area p-6">
-          <div className="text-center">
-            <img
-              src="/logo-small.png"
-              alt="Hotel Yonanda"
-              className="mx-auto mb-2 h-16 w-16 object-contain"
-            />
-            <h1 className="text-2xl font-bold text-foreground">Hotel Yonanda</h1>
-            <p className="text-sm text-muted-foreground">Nota Pembayaran</p>
-            <p className="mt-2 text-xs text-muted-foreground">{formatDate(data.timestamp)}</p>
+        {/* ===== PRINT AREA START ===== */}
+        <div className="print-area p-4 font-mono text-xs bg-white">
+
+          {/* Header */}
+          <div className="receipt-header text-center">
+            <div className="text-sm font-bold">HOTEL YONANDA</div>
+            <div className="text-[10px]">Terima Kasih Atas</div>
+            <div className="text-[10px]">Kunjungan Anda</div>
           </div>
 
-          <div className="my-4 border-t border-dashed border-border" />
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
-          {/* Room info for room checkout */}
-          {data.type === 'room' && (
-            <div className="mb-4 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Kamar:</span>
-                <span className="font-medium">{data.roomNumber}</span>
-              </div>
-              {data.guestName && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tamu:</span>
-                  <span className="font-medium">{data.guestName}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tipe:</span>
-                <span className="font-medium">{data.roomType}</span>
-              </div>
-              {data.checkInTime && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Check-in:</span>
-                  <span className="font-medium">{formatDate(data.checkInTime)}</span>
-                </div>
-              )}
-              {data.checkOutTime && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Check-out:</span>
-                  <span className="font-medium">{formatDate(data.checkOutTime)}</span>
-                </div>
-              )}
-              {data.nights !== undefined && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Durasi:</span>
-                  <span className="font-medium">{data.nights} malam</span>
-                </div>
-              )}
-              {data.roomRate !== undefined && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tarif/malam:</span>
-                  <span className="font-medium">{formatCurrency(data.roomRate)}</span>
-                </div>
-              )}
+          {/* Transaction Info */}
+          <div className="space-y-0.5">
+            <div className="receipt-row flex justify-between">
+              <span>Tanggal</span>
+              <span>{formatDate(data.timestamp)}</span>
             </div>
+            <div className="receipt-row flex justify-between">
+              <span>Jam</span>
+              <span>{formatTime(data.timestamp)}</span>
+            </div>
+            <div className="receipt-row flex justify-between">
+              <span>Jenis</span>
+              <span>{getReceiptTypeLabel(data.type)}</span>
+            </div>
+          </div>
+
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+
+          {/* Receipt Number */}
+          <div className="receipt-number text-center font-bold text-sm">
+            No: {data.receiptNumber || '-'}
+          </div>
+
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+
+          {/* Room info for checkout */}
+          {data.type === 'room' && (
+            <>
+              <div className="space-y-0.5">
+                <div className="receipt-row flex justify-between">
+                  <span>No. Kamar</span>
+                  <span>{data.roomNumber}</span>
+                </div>
+                {data.guestName && (
+                  <div className="receipt-row flex justify-between">
+                    <span>Tamu</span>
+                    <span className="text-right max-w-[100px] truncate">{data.guestName}</span>
+                  </div>
+                )}
+                <div className="receipt-row flex justify-between">
+                  <span>Tipe</span>
+                  <span>{data.roomType}</span>
+                </div>
+                {data.nights !== undefined && (
+                  <div className="receipt-row flex justify-between">
+                    <span>Durasi</span>
+                    <span>{data.nights} malam</span>
+                  </div>
+                )}
+                {data.roomRate !== undefined && (
+                  <div className="receipt-row flex justify-between">
+                    <span>Tarif/Mlm</span>
+                    <span>{formatCurrency(data.roomRate)}</span>
+                  </div>
+                )}
+              </div>
+              <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+            </>
           )}
 
-          {/* Canteen order room info */}
+          {/* Room info for canteen guest */}
           {data.type === 'canteen-guest' && data.roomNumber && (
-            <div className="mb-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Kamar:</span>
-                <span className="font-medium">{data.roomNumber}</span>
+            <>
+              <div className="receipt-row flex justify-between">
+                <span>Kamar</span>
+                <span>{data.roomNumber}</span>
               </div>
-            </div>
+              <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+            </>
           )}
 
           {/* Order items */}
           {data.items.length > 0 && (
             <>
-              <div className="my-2 border-t border-dashed border-border" />
-              <div className="space-y-2">
+              <div className="space-y-0.5">
                 {data.items.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <div className="flex-1">
-                      <span>{item.name}</span>
-                      <span className="ml-2 text-muted-foreground">x{item.quantity}</span>
-                    </div>
-                    <span className="font-medium">{formatCurrency(item.subtotal)}</span>
+                  <div key={index} className="receipt-item-row flex justify-between text-[10px]">
+                    <span className="flex-1 truncate pr-1">
+                      {item.name} x{item.quantity}
+                    </span>
+                    <span className="whitespace-nowrap">{formatCurrency(item.subtotal)}</span>
                   </div>
                 ))}
               </div>
+              <hr className="receipt-divider my-2 border-dashed border-gray-400" />
             </>
           )}
 
-          <div className="my-4 border-t border-dashed border-border" />
-
           {/* Total */}
-          <div className="flex justify-between text-lg font-bold">
+          <div className="receipt-total flex justify-between font-bold">
             <span>TOTAL</span>
             <span>{formatCurrency(data.total)}</span>
           </div>
 
-          <div className="my-4 border-t border-dashed border-border" />
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
-          <p className="text-center text-xs text-muted-foreground">
-            Terima kasih atas kunjungan Anda
-          </p>
-          <p className="mt-1 text-center text-xs text-muted-foreground">
-            Maksimal check-out jam 12.00 WIB
-          </p>
+          {/* Warning */}
+          <div className="receipt-warning border border-dashed border-gray-400 p-1 text-center text-[10px]">
+            <div>⚠️ PENTING ⚠️</div>
+            <div>Max Check-out 12.00 WIB</div>
+          </div>
 
-          <div className="my-4 border-t border-dashed border-border" />
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
-          <p className="text-center text-xs text-muted-foreground">
-            Developed System by Nekat Digital
-          </p>
+          {/* Footer */}
+          <div className="receipt-footer text-center text-[9px] text-gray-600">
+            <div>================================</div>
+            <div>Developed System by</div>
+            <div>Nekat Digital</div>
+            <div>================================</div>
+          </div>
+
         </div>
+        {/* ===== PRINT AREA END ===== */}
 
-        {/* Print button */}
-        <div className="border-t p-4 no-print">
-          <Button onClick={onPrint} className="w-full touch-button" size="lg">
+        {/* Print button - NOT PRINTED */}
+        <div className="border-t p-3 no-print">
+          <Button onClick={handlePrint} className="w-full" size="lg">
             <Printer className="mr-2 h-5 w-5" />
             Cetak Nota
           </Button>

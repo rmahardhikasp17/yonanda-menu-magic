@@ -135,27 +135,127 @@
   }
 }
 
-/* Print styles for receipt */
+/* ========================================
+   THERMAL 58mm PRINT STYLES
+   Optimized for thermal receipt printers
+   Width: 58mm, Printable: ~48mm
+   ======================================== */
 @media print {
+  /* Hide everything except print area */
   body * {
     visibility: hidden;
   }
   
-  .print-area, .print-area * {
+  .print-area,
+  .print-area * {
     visibility: visible;
   }
   
-  .print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    padding: 10mm;
-    font-size: 12px;
+  /* Thermal printer dimensions */
+  @page {
+    size: 58mm auto;
+    margin: 0;
   }
   
+  html, body {
+    width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .print-area {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    padding: 2mm 3mm !important;
+    margin: 0 !important;
+    background: white !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    color: black !important;
+  }
+  
+  /* Receipt specific styles */
+  .receipt-header {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+  }
+  
+  .receipt-number {
+    font-size: 13px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+  }
+  
+  .receipt-divider {
+    border: none !important;
+    border-top: 1px dashed black !important;
+    margin: 4px 0 !important;
+  }
+  
+  .receipt-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
+  
+  .receipt-item-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    font-size: 10px !important;
+  }
+  
+  .receipt-total {
+    font-size: 12px !important;
+    font-weight: bold !important;
+  }
+  
+  .receipt-footer {
+    font-size: 9px !important;
+    text-align: center !important;
+  }
+  
+  .receipt-warning {
+    font-size: 10px !important;
+    text-align: center !important;
+    border: 1px dashed black !important;
+    padding: 3px !important;
+    margin: 4px 0 !important;
+  }
+  
+  /* Hide non-print elements */
   .no-print {
     display: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* No page breaks */
+  .print-area,
+  .print-area * {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  
+  /* Hide logo on print (thermal printers can't do images well) */
+  .print-area img {
+    display: none !important;
+  }
+  
+  /* Override all colors to black */
+  .print-area,
+  .print-area * {
+    color: black !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 }
 

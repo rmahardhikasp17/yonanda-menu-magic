@@ -4,6 +4,29 @@ export type RoomType = 'standar' | 'superior' | 'suite' | 'family' | 'deluxe';
 // Payment Method
 export type PaymentMethod = 'cash' | 'qris';
 
+// Receipt Numbering Types
+export type ReceiptType = 'checkin' | 'checkout' | 'kantin_tamu' | 'kantin_nontamu';
+
+export interface ReceiptCounter {
+  lastNumber: number;
+  lastPrintedAt: string; // ISO date string
+}
+
+export interface ReceiptCounters {
+  checkin: ReceiptCounter;
+  checkout: ReceiptCounter;
+  kantin_tamu: ReceiptCounter;
+  kantin_nontamu: ReceiptCounter;
+}
+
+// Receipt prefix mapping
+export const RECEIPT_PREFIXES: Record<ReceiptType, string> = {
+  checkin: 'CI-',
+  checkout: 'CO-',
+  kantin_tamu: 'KT-',
+  kantin_nontamu: 'KN-',
+};
+
 // Active Guest Data (session-based, for multi-room check-in)
 export interface ActiveGuest {
   name: string;
@@ -75,6 +98,7 @@ export interface Order {
 
 // Receipt Types
 export interface ReceiptData {
+  receiptNumber: string; // e.g., "CI-0047"
   hotelName: string;
   timestamp: string;
   roomNumber?: string;

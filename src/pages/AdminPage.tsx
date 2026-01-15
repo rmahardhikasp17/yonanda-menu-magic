@@ -11,15 +11,16 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Pencil, Trash2, Plus, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { RoomManagement } from '@/components/RoomManagement';
 
 const AdminPage = () => {
   const { menuItems, addMenuItem, updateMenuItem, deleteMenuItem, resetMenu, getMenuByCategory } = useMenu();
   const { toast } = useToast();
-  
+
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory>('nasi-goreng');
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  
+
   // Form state
   const [formName, setFormName] = useState('');
   const [formPrice, setFormPrice] = useState('');
@@ -183,6 +184,20 @@ const AdminPage = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Divider */}
+        <hr className="my-8 border-t-2 border-border" />
+
+        {/* Room Management Section */}
+        <div className="rounded-xl border bg-card p-6">
+          <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+            <span className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+              🛏️
+            </span>
+            Kelola Kamar Hotel
+          </h2>
+          <RoomManagement onBack={() => { }} />
         </div>
       </main>
 

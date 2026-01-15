@@ -1,15 +1,28 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardCard } from '@/components/DashboardCard';
 import { Footer } from '@/components/Footer';
+import { OwnerMenu } from '@/components/OwnerMenu';
 import { BedDouble, UtensilsCrossed, Wallet, Settings } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [showOwnerMenu, setShowOwnerMenu] = useState(false);
 
   return (
     <div className="min-h-screen bg-background pb-12">
       {/* Header with Logo */}
-      <header className="border-b bg-card shadow-sm">
+      <header className="relative border-b bg-card shadow-sm">
+        {/* Settings Button - Top Right Corner (Owner Admin Access) */}
+        <button
+          onClick={() => setShowOwnerMenu(true)}
+          className="absolute right-4 top-4 p-2 text-muted-foreground/40 hover:text-muted-foreground/70 transition-opacity cursor-pointer"
+          aria-label="Pengaturan Sistem"
+          title="Pengaturan Sistem"
+        >
+          <Settings className="h-5 w-5" />
+        </button>
+
         <div className="container flex flex-col items-center justify-center px-4 py-6">
           <img
             src="/logo.png"
@@ -85,6 +98,11 @@ const Dashboard = () => {
         </div>
       </main>
 
+      {/* Owner Admin Menu (PIN Protected) */}
+      {showOwnerMenu && (
+        <OwnerMenu onClose={() => setShowOwnerMenu(false)} />
+      )}
+
       {/* Footer Branding */}
       <Footer />
     </div>
@@ -92,3 +110,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

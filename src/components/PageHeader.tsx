@@ -40,6 +40,7 @@ export function PageHeader({
               src="/logo-small.png"
               alt="Hotel Yonanda"
               className="h-10 w-10 object-contain"
+              draggable={false}
             />
           )}
           <div>

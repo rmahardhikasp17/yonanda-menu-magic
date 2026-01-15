@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMenu } from '@/hooks/useMenu';
 import { useOrder } from '@/hooks/useOrder';
+import { useReceiptCounter } from '@/hooks/useReceiptCounter';
 import { MenuCategory, ReceiptData } from '@/types/hotel';
 import { menuCategories } from '@/data/menuData';
 import { PageHeader } from '@/components/PageHeader';
@@ -13,7 +14,8 @@ import { Footer } from '@/components/Footer';
 const DirectOrderPage = () => {
   const { getMenuByCategory } = useMenu();
   const { orderItems, addItem, removeItem, clearOrder, getTotal, getItemQuantity } = useOrder();
-  
+  const { getNextReceiptNumber } = useReceiptCounter();
+
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory>('nasi-goreng');
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
@@ -22,7 +24,11 @@ const DirectOrderPage = () => {
   const handleCheckout = () => {
     if (orderItems.length === 0) return;
 
+    // Generate sequential receipt number for non-guest canteen orders
+    const receiptNumber = getNextReceiptNumber('kantin_nontamu');
+
     setReceipt({
+      receiptNumber,
       hotelName: 'Hotel Yonanda',
       timestamp: new Date().toISOString(),
       items: orderItems.map((item) => ({

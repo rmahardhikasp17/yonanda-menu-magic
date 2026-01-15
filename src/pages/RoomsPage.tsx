@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRooms } from '@/hooks/useRooms';
 import { useActiveGuest } from '@/hooks/useActiveGuest';
+import { useReceiptCounter } from '@/hooks/useReceiptCounter';
 import { RoomRecord, GuestRecord } from '@/lib/db';
 import { ReceiptData, PaymentMethod } from '@/types/hotel';
 import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
@@ -52,6 +53,7 @@ interface LegacyActiveGuest {
 const RoomsPage = () => {
   const { rooms, checkIn, checkOut, getOccupiedRooms, getAvailableRooms, refreshRooms } = useRooms();
   const { activeGuest, setGuest, selectExistingGuest, clearGuest, hasActiveGuest, getMaskedKtp } = useActiveGuest();
+  const { getNextReceiptNumber } = useReceiptCounter();
 
   const [selectedRoom, setSelectedRoom] = useState<RoomRecord | null>(null);
   const [checkInStep, setCheckInStep] = useState<CheckInStep>('select');
@@ -166,7 +168,11 @@ const RoomsPage = () => {
       const total = nights * checkedOutRoom.rate_per_night;
       const typeInfo = getRoomTypeInfo(checkedOutRoom.room_type);
 
+      // Generate sequential receipt number for checkout
+      const receiptNumber = getNextReceiptNumber('checkout');
+
       setReceipt({
+        receiptNumber,
         hotelName: 'Hotel Yonanda',
         timestamp: new Date().toISOString(),
         roomNumber: checkedOutRoom.room_number,
