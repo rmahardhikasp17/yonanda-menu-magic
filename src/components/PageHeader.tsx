@@ -8,6 +8,7 @@ interface PageHeaderProps {
   showBack?: boolean;
   backPath?: string;
   rightContent?: React.ReactNode;
+  showLogo?: boolean;
 }
 
 export function PageHeader({
@@ -16,6 +17,7 @@ export function PageHeader({
   showBack = true,
   backPath = '/',
   rightContent,
+  showLogo = false,
 }: PageHeaderProps) {
   const navigate = useNavigate();
 
@@ -32,6 +34,13 @@ export function PageHeader({
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
+          )}
+          {showLogo && (
+            <img
+              src="/logo-small.png"
+              alt="Hotel Yonanda"
+              className="h-10 w-10 object-contain"
+            />
           )}
           <div>
             <h1 className="text-xl font-bold text-foreground">{title}</h1>

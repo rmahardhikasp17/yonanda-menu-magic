@@ -59,6 +59,11 @@ export function CheckInReceipt({
         {/* Receipt content */}
         <div className="print-area p-6">
           <div className="text-center">
+            <img
+              src="/logo-small.png"
+              alt="Hotel Yonanda"
+              className="mx-auto mb-2 h-16 w-16 object-contain"
+            />
             <h1 className="text-2xl font-bold text-foreground">HOTEL YONANDA</h1>
             <p className="mt-1 text-sm text-muted-foreground">Terima Kasih Atas Kunjungan Anda</p>
           </div>
@@ -110,8 +115,8 @@ export function CheckInReceipt({
                 type="button"
                 onClick={() => setPaymentMethod('cash')}
                 className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === 'cash'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border hover:border-primary/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/50'
                   }`}
               >
                 <Banknote className={`h-6 w-6 ${paymentMethod === 'cash' ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -123,8 +128,8 @@ export function CheckInReceipt({
                 type="button"
                 onClick={() => setPaymentMethod('qris')}
                 className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === 'qris'
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border hover:border-primary/50'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/50'
                   }`}
               >
                 <QrCode className={`h-6 w-6 ${paymentMethod === 'qris' ? 'text-primary' : 'text-muted-foreground'}`} />

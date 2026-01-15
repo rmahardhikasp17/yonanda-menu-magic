@@ -30,6 +30,11 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
         {/* Receipt content */}
         <div className="print-area p-6">
           <div className="text-center">
+            <img
+              src="/logo-small.png"
+              alt="Hotel Yonanda"
+              className="mx-auto mb-2 h-16 w-16 object-contain"
+            />
             <h1 className="text-2xl font-bold text-foreground">Hotel Yonanda</h1>
             <p className="text-sm text-muted-foreground">Nota Pembayaran</p>
             <p className="mt-2 text-xs text-muted-foreground">{formatDate(data.timestamp)}</p>

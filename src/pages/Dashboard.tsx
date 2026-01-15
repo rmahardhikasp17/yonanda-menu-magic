@@ -8,11 +8,17 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      {/* Header */}
+      {/* Header with Logo */}
       <header className="border-b bg-card shadow-sm">
-        <div className="container flex flex-col items-center justify-center px-4 py-8">
+        <div className="container flex flex-col items-center justify-center px-4 py-6">
+          <img
+            src="/logo.png"
+            alt="Hotel Yonanda"
+            className="mb-3 h-24 w-24 object-contain"
+          />
           <h1 className="text-3xl font-bold text-foreground">Hotel Yonanda</h1>
-          <p className="text-muted-foreground">Sistem Kasir Operasional</p>
+          <p className="text-muted-foreground">Jimbaran - Bandungan</p>
+          <p className="mt-1 text-sm text-muted-foreground">Sistem Kasir Operasional</p>
         </div>
       </header>
 
