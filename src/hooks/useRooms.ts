@@ -1,100 +1,175 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Room, ActiveGuest, PaymentMethod } from '@/types/hotel';
-import { generateInitialRooms } from '@/data/roomData';
+import {
+  RoomRecord,
+  getAllRooms,
+  getRoom as dbGetRoom,
+  initializeRooms,
+  assignRooms as dbAssignRooms,
+  checkoutRoom as dbCheckoutRoom,
+  cleanupAfterCheckout,
+  getAvailableRooms as dbGetAvailableRooms,
+  getOccupiedRooms as dbGetOccupiedRooms,
+  getRoomsByGuestId,
+  initDB,
+} from '@/lib/db';
+import { roomTypesData } from '@/data/roomData';
+import { RoomType } from '@/types/hotel';
 
-const STORAGE_KEY = 'hotel-yonanda-rooms';
+export interface UseRoomsReturn {
+  rooms: RoomRecord[];
+  isLoading: boolean;
+  error: string | null;
+  checkIn: (guestId: string, roomNumbers: string[]) => Promise<RoomRecord[]>;
+  checkOut: (roomNumber: string) => Promise<{ room: RoomRecord; guestId: string | null }>;
+  getRoom: (roomNumber: string) => Promise<RoomRecord | null>;
+  getOccupiedRooms: () => RoomRecord[];
+  getAvailableRooms: () => RoomRecord[];
+  getRoomsByGuest: (guestId: string) => Promise<RoomRecord[]>;
+  refreshRooms: () => Promise<void>;
+}
 
-export function useRooms() {
-  const [rooms, setRooms] = useState<Room[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return generateInitialRooms();
-      }
-    }
-    return generateInitialRooms();
+/**
+ * Convert room type static data to RoomRecord format for initialization
+ */
+function generateInitialRoomRecords(): Omit<RoomRecord, 'guest_id' | 'checkin_time' | 'checkout_deadline' | 'status'>[] {
+  const records: Omit<RoomRecord, 'guest_id' | 'checkin_time' | 'checkout_deadline' | 'status'>[] = [];
+
+  roomTypesData.forEach((typeInfo) => {
+    typeInfo.rooms.forEach((roomNumber) => {
+      records.push({
+        room_number: roomNumber,
+        room_type: typeInfo.type as RoomType,
+        rate_per_night: typeInfo.rate,
+      });
+    });
   });
 
+  // Sort by room number
+  return records.sort((a, b) => parseInt(a.room_number) - parseInt(b.room_number));
+}
+
+/**
+ * Hook for managing hotel rooms
+ * Uses IndexedDB for persistent storage
+ */
+export function useRooms(): UseRoomsReturn {
+  const [rooms, setRooms] = useState<RoomRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize and load rooms
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
-  }, [rooms]);
+    const init = async () => {
+      setIsLoading(true);
+      try {
+        await initDB();
 
-  const checkIn = useCallback((
-    roomNumber: string,
-    guest: ActiveGuest,
-    paymentMethod: PaymentMethod
-  ) => {
-    setRooms((prev) =>
-      prev.map((room) =>
-        room.number === roomNumber
-          ? {
-              ...room,
-              isOccupied: true,
-              guestName: guest.name,
-              guestAddress: guest.address,
-              guestKtp: guest.ktpNumber,
-              guestPhone: guest.phoneNumber,
-              checkInTime: new Date().toISOString(),
-              paymentMethod,
-            }
-          : room
-      )
-    );
+        // Initialize rooms if empty
+        const initialRecords = generateInitialRoomRecords();
+        await initializeRooms(initialRecords);
+
+        // Load all rooms
+        const allRooms = await getAllRooms();
+        // Sort by room number
+        allRooms.sort((a, b) => parseInt(a.room_number) - parseInt(b.room_number));
+        setRooms(allRooms);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to initialize rooms');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    init();
   }, []);
 
-  const checkOut = useCallback((roomNumber: string): Room | null => {
-    let checkedOutRoom: Room | null = null;
-    setRooms((prev) =>
-      prev.map((room) => {
-        if (room.number === roomNumber && room.isOccupied) {
-          checkedOutRoom = { ...room };
-          return {
-            ...room,
-            isOccupied: false,
-            guestName: undefined,
-            guestAddress: undefined,
-            guestKtp: undefined,
-            guestPhone: undefined,
-            checkInTime: undefined,
-            paymentMethod: undefined,
-          };
-        }
-        return room;
-      })
-    );
-    return checkedOutRoom;
+  /**
+   * Refresh rooms from database
+   */
+  const refreshRooms = useCallback(async () => {
+    try {
+      const allRooms = await getAllRooms();
+      allRooms.sort((a, b) => parseInt(a.room_number) - parseInt(b.room_number));
+      setRooms(allRooms);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh rooms');
+    }
   }, []);
 
-  const getRoom = useCallback(
-    (roomNumber: string): Room | undefined => {
-      return rooms.find((room) => room.number === roomNumber);
-    },
-    [rooms]
-  );
+  /**
+   * Check in guest to multiple rooms
+   */
+  const checkIn = useCallback(async (guestId: string, roomNumbers: string[]): Promise<RoomRecord[]> => {
+    try {
+      const updatedRooms = await dbAssignRooms(guestId, roomNumbers);
+      await refreshRooms();
+      return updatedRooms;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Check-in failed';
+      setError(message);
+      throw err;
+    }
+  }, [refreshRooms]);
 
-  const getOccupiedRooms = useCallback((): Room[] => {
-    return rooms.filter((room) => room.isOccupied);
+  /**
+   * Check out from a room
+   */
+  const checkOut = useCallback(async (roomNumber: string): Promise<{ room: RoomRecord; guestId: string | null }> => {
+    try {
+      const result = await dbCheckoutRoom(roomNumber);
+
+      // Cleanup if this was the guest's last room
+      if (result.guestId) {
+        await cleanupAfterCheckout(result.guestId);
+      }
+
+      await refreshRooms();
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Check-out failed';
+      setError(message);
+      throw err;
+    }
+  }, [refreshRooms]);
+
+  /**
+   * Get room by number
+   */
+  const getRoom = useCallback(async (roomNumber: string): Promise<RoomRecord | null> => {
+    return dbGetRoom(roomNumber);
+  }, []);
+
+  /**
+   * Get occupied rooms (from local state)
+   */
+  const getOccupiedRooms = useCallback((): RoomRecord[] => {
+    return rooms.filter((r) => r.status === 'occupied');
   }, [rooms]);
 
-  const getAvailableRooms = useCallback((): Room[] => {
-    return rooms.filter((room) => !room.isOccupied);
+  /**
+   * Get available rooms (from local state)
+   */
+  const getAvailableRooms = useCallback((): RoomRecord[] => {
+    return rooms.filter((r) => r.status === 'available');
   }, [rooms]);
 
-  const resetRooms = useCallback(() => {
-    const initial = generateInitialRooms();
-    setRooms(initial);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+  /**
+   * Get rooms by guest ID
+   */
+  const getRoomsByGuest = useCallback(async (guestId: string): Promise<RoomRecord[]> => {
+    return getRoomsByGuestId(guestId);
   }, []);
 
   return {
     rooms,
+    isLoading,
+    error,
     checkIn,
     checkOut,
     getRoom,
     getOccupiedRooms,
     getAvailableRooms,
-    resetRooms,
+    getRoomsByGuest,
+    refreshRooms,
   };
 }

@@ -1,47 +1,138 @@
-import { useState, useCallback } from 'react';
-import { ActiveGuest } from '@/types/hotel';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  GuestRecord,
+  getGuest,
+  createGuest as dbCreateGuest,
+  CreateGuestInput,
+} from '@/lib/db';
+import {
+  getActiveGuestId,
+  setActiveGuestId,
+  clearCheckoutState,
+} from '@/lib/storage';
+import { maskKtp } from '@/lib/validation';
 
-const SESSION_KEY = 'hotel-yonanda-active-guest';
+export interface UseActiveGuestReturn {
+  activeGuest: GuestRecord | null;
+  isLoading: boolean;
+  error: string | null;
+  setGuest: (input: CreateGuestInput) => Promise<GuestRecord>;
+  selectExistingGuest: (guest: GuestRecord) => void;
+  loadGuest: (id: string) => Promise<void>;
+  clearGuest: () => void;
+  hasActiveGuest: boolean;
+  getMaskedKtp: (ktp: string) => string;
+}
 
-export function useActiveGuest() {
-  const [activeGuest, setActiveGuest] = useState<ActiveGuest | null>(() => {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored) {
+/**
+ * Hook for managing active guest
+ * Uses IndexedDB for guest data, LocalStorage only for guest ID reference
+ */
+export function useActiveGuest(): UseActiveGuestReturn {
+  const [activeGuest, setActiveGuest] = useState<GuestRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load guest on mount if ID exists in localStorage
+  useEffect(() => {
+    const loadInitialGuest = async () => {
+      setIsLoading(true);
       try {
-        return JSON.parse(stored);
-      } catch {
-        return null;
+        const guestId = getActiveGuestId();
+        if (guestId) {
+          const guest = await getGuest(guestId);
+          if (guest && guest.is_active) {
+            setActiveGuest(guest);
+          } else {
+            // Guest not found or inactive, clear localStorage
+            setActiveGuestId(null);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load guest');
+      } finally {
+        setIsLoading(false);
       }
-    }
-    return null;
-  });
+    };
 
-  const setGuest = useCallback((guest: ActiveGuest) => {
-    setActiveGuest(guest);
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(guest));
+    loadInitialGuest();
   }, []);
 
+  /**
+   * Create new guest and set as active
+   */
+  const setGuest = useCallback(async (input: CreateGuestInput): Promise<GuestRecord> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const guest = await dbCreateGuest(input);
+      setActiveGuest(guest);
+      setActiveGuestId(guest.id);
+      return guest;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create guest';
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Load existing guest by ID
+   */
+  const loadGuest = useCallback(async (id: string): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const guest = await getGuest(id);
+      if (guest && guest.is_active) {
+        setActiveGuest(guest);
+        setActiveGuestId(guest.id);
+      } else {
+        throw new Error('Guest not found or inactive');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load guest';
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Select an existing guest (from GuestSelector) without creating new
+   */
+  const selectExistingGuest = useCallback((guest: GuestRecord) => {
+    setActiveGuest(guest);
+    setActiveGuestId(guest.id);
+  }, []);
+
+  /**
+   * Clear active guest (e.g., after checkout)
+   */
   const clearGuest = useCallback(() => {
     setActiveGuest(null);
-    sessionStorage.removeItem(SESSION_KEY);
+    clearCheckoutState();
   }, []);
 
-  const hasActiveGuest = activeGuest !== null;
-
-  // Mask KTP for display on receipt (show first 4 + last 4)
+  /**
+   * Mask KTP for display on receipts/UI
+   */
   const getMaskedKtp = useCallback((ktp: string): string => {
-    if (ktp.length <= 8) return ktp;
-    const first = ktp.slice(0, 4);
-    const last = ktp.slice(-4);
-    const middle = '*'.repeat(ktp.length - 8);
-    return `${first}${middle}${last}`;
+    return maskKtp(ktp);
   }, []);
 
   return {
     activeGuest,
+    isLoading,
+    error,
     setGuest,
+    selectExistingGuest,
+    loadGuest,
     clearGuest,
-    hasActiveGuest,
+    hasActiveGuest: activeGuest !== null,
     getMaskedKtp,
   };
 }

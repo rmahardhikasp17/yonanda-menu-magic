@@ -1,11 +1,18 @@
-import { MenuItem } from '@/types/hotel';
 import { formatCurrency } from '@/data/roomData';
 import { cn } from '@/lib/utils';
 import { Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+// Simplified interface to accept both MenuItem and MenuRecord
+interface MenuItemCardItem {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+}
+
 interface MenuItemCardProps {
-  item: MenuItem;
+  item: MenuItemCardItem;
   quantity: number;
   onAdd: () => void;
   onRemove: () => void;

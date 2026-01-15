@@ -1,14 +1,28 @@
 import { useState } from 'react';
-import { Room, ActiveGuest, PaymentMethod } from '@/types/hotel';
+import { PaymentMethod } from '@/types/hotel';
 import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Printer, X, Banknote, QrCode } from 'lucide-react';
 
+// Simplified interfaces for CheckInReceipt
+interface CheckInReceiptRoom {
+  number: string;
+  type: string;
+  rate: number;
+}
+
+interface CheckInReceiptGuest {
+  name: string;
+  address: string;
+  ktpNumber: string;
+  phoneNumber?: string;
+}
+
 interface CheckInReceiptProps {
-  room: Room;
-  guest: ActiveGuest;
+  room: CheckInReceiptRoom;
+  guest: CheckInReceiptGuest;
   maskedKtp: string;
   onConfirm: (paymentMethod: PaymentMethod) => void;
   onCancel: () => void;
@@ -95,11 +109,10 @@ export function CheckInReceipt({
               <button
                 type="button"
                 onClick={() => setPaymentMethod('cash')}
-                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                  paymentMethod === 'cash'
+                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === 'cash'
                     ? 'border-primary bg-primary/10'
                     : 'border-border hover:border-primary/50'
-                }`}
+                  }`}
               >
                 <Banknote className={`h-6 w-6 ${paymentMethod === 'cash' ? 'text-primary' : 'text-muted-foreground'}`} />
                 <span className={`text-sm font-medium ${paymentMethod === 'cash' ? 'text-primary' : 'text-foreground'}`}>
@@ -109,11 +122,10 @@ export function CheckInReceipt({
               <button
                 type="button"
                 onClick={() => setPaymentMethod('qris')}
-                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
-                  paymentMethod === 'qris'
+                className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === 'qris'
                     ? 'border-primary bg-primary/10'
                     : 'border-border hover:border-primary/50'
-                }`}
+                  }`}
               >
                 <QrCode className={`h-6 w-6 ${paymentMethod === 'qris' ? 'text-primary' : 'text-muted-foreground'}`} />
                 <span className={`text-sm font-medium ${paymentMethod === 'qris' ? 'text-primary' : 'text-foreground'}`}>

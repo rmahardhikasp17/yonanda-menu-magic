@@ -35,7 +35,7 @@ export interface RoomTypeInfo {
 }
 
 // Menu Types
-export type MenuCategory = 
+export type MenuCategory =
   | 'nasi-goreng'
   | 'gorengan'
   | 'penyetan'
@@ -88,3 +88,7 @@ export interface ReceiptData {
   roomType?: string;
   roomRate?: number;
 }
+
+// Re-export IndexedDB types for convenience
+export type { GuestRecord, RoomRecord, MenuRecord, OrderTempRecord } from '@/lib/db';
+

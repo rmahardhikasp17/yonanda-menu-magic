@@ -1,62 +1,143 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MenuItem, MenuCategory } from '@/types/hotel';
+import {
+  MenuRecord,
+  getAllMenus,
+  initializeMenus,
+  addMenu as dbAddMenu,
+  updateMenu as dbUpdateMenu,
+  deleteMenu as dbDeleteMenu,
+  initDB,
+} from '@/lib/db';
 import { defaultMenuItems } from '@/data/menuData';
+import { MenuCategory } from '@/types/hotel';
 
-const STORAGE_KEY = 'hotel-yonanda-menu';
+export interface UseMenuReturn {
+  menuItems: MenuRecord[];
+  isLoading: boolean;
+  error: string | null;
+  addMenuItem: (item: Omit<MenuRecord, 'id' | 'is_active'>) => Promise<MenuRecord>;
+  updateMenuItem: (id: string, updates: Partial<MenuRecord>) => Promise<void>;
+  deleteMenuItem: (id: string) => Promise<void>;
+  getMenuByCategory: (category: MenuCategory) => MenuRecord[];
+  refreshMenu: () => Promise<void>;
+}
 
-export function useMenu() {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return defaultMenuItems;
-      }
-    }
-    return defaultMenuItems;
-  });
+/**
+ * Convert static menu data to MenuRecord format
+ */
+function convertMenuData(): Omit<MenuRecord, 'is_active'>[] {
+  return defaultMenuItems.map((item) => ({
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    category: item.category,
+  }));
+}
 
+/**
+ * Hook for managing menu items
+ * Uses IndexedDB for persistent storage
+ */
+export function useMenu(): UseMenuReturn {
+  const [menuItems, setMenuItems] = useState<MenuRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize and load menu
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(menuItems));
-  }, [menuItems]);
+    const init = async () => {
+      setIsLoading(true);
+      try {
+        await initDB();
 
-  const addMenuItem = useCallback((item: Omit<MenuItem, 'id'>) => {
-    const newItem: MenuItem = {
-      ...item,
-      id: `custom-${Date.now()}`,
+        // Initialize menu if empty
+        const initialMenus = convertMenuData();
+        await initializeMenus(initialMenus);
+
+        // Load all menus
+        const allMenus = await getAllMenus();
+        // Filter only active menus
+        setMenuItems(allMenus.filter((m) => m.is_active));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to initialize menu');
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setMenuItems((prev) => [...prev, newItem]);
+
+    init();
   }, []);
 
-  const updateMenuItem = useCallback((id: string, updates: Partial<MenuItem>) => {
-    setMenuItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    );
+  /**
+   * Refresh menu from database
+   */
+  const refreshMenu = useCallback(async () => {
+    try {
+      const allMenus = await getAllMenus();
+      setMenuItems(allMenus.filter((m) => m.is_active));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh menu');
+    }
   }, []);
 
-  const deleteMenuItem = useCallback((id: string) => {
-    setMenuItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  /**
+   * Add new menu item
+   */
+  const addMenuItem = useCallback(async (item: Omit<MenuRecord, 'id' | 'is_active'>): Promise<MenuRecord> => {
+    try {
+      const newItem = await dbAddMenu(item);
+      await refreshMenu();
+      return newItem;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add menu item';
+      setError(message);
+      throw err;
+    }
+  }, [refreshMenu]);
 
-  const getMenuByCategory = useCallback(
-    (category: MenuCategory): MenuItem[] => {
-      return menuItems.filter((item) => item.category === category);
-    },
-    [menuItems]
-  );
+  /**
+   * Update menu item
+   */
+  const updateMenuItem = useCallback(async (id: string, updates: Partial<MenuRecord>): Promise<void> => {
+    try {
+      await dbUpdateMenu(id, updates);
+      await refreshMenu();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update menu item';
+      setError(message);
+      throw err;
+    }
+  }, [refreshMenu]);
 
-  const resetMenu = useCallback(() => {
-    setMenuItems(defaultMenuItems);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultMenuItems));
-  }, []);
+  /**
+   * Delete menu item (soft delete)
+   */
+  const deleteMenuItem = useCallback(async (id: string): Promise<void> => {
+    try {
+      await dbDeleteMenu(id);
+      await refreshMenu();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete menu item';
+      setError(message);
+      throw err;
+    }
+  }, [refreshMenu]);
+
+  /**
+   * Get menu items by category
+   */
+  const getMenuByCategory = useCallback((category: MenuCategory): MenuRecord[] => {
+    return menuItems.filter((item) => item.category === category);
+  }, [menuItems]);
 
   return {
     menuItems,
+    isLoading,
+    error,
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
     getMenuByCategory,
-    resetMenu,
+    refreshMenu,
   };
 }

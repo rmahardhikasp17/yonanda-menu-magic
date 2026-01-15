@@ -17,7 +17,7 @@ const GuestOrderPage = () => {
   const { getOccupiedRooms } = useRooms();
   const { getMenuByCategory } = useMenu();
   const { orderItems, addItem, removeItem, clearOrder, getTotal, getItemQuantity } = useOrder();
-  
+
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory>('nasi-goreng');
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -76,20 +76,15 @@ const GuestOrderPage = () => {
               <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
                 {occupiedRooms.map((room) => (
                   <Button
-                    key={room.number}
+                    key={room.room_number}
                     variant="outline"
                     className={cn(
                       'touch-card h-20 flex-col gap-1 border-2',
                       'hover:border-primary hover:bg-primary/5'
                     )}
-                    onClick={() => setSelectedRoom(room.number)}
+                    onClick={() => setSelectedRoom(room.room_number)}
                   >
-                    <span className="text-xl font-bold">{room.number}</span>
-                    {room.guestName && (
-                      <span className="text-xs text-muted-foreground truncate max-w-full">
-                        {room.guestName}
-                      </span>
-                    )}
+                    <span className="text-xl font-bold">{room.room_number}</span>
                   </Button>
                 ))}
               </div>

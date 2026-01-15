@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useRooms } from '@/hooks/useRooms';
 import { useActiveGuest } from '@/hooks/useActiveGuest';
-import { Room, ReceiptData, ActiveGuest, PaymentMethod } from '@/types/hotel';
+import { RoomRecord, GuestRecord } from '@/lib/db';
+import { ReceiptData, PaymentMethod } from '@/types/hotel';
 import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
 import { PageHeader } from '@/components/PageHeader';
 import { RoomCard } from '@/components/RoomCard';
@@ -9,7 +10,9 @@ import { Receipt } from '@/components/Receipt';
 import { Footer } from '@/components/Footer';
 import { ActiveGuestBadge } from '@/components/ActiveGuestBadge';
 import { GuestForm } from '@/components/GuestForm';
+import { GuestSelector } from '@/components/GuestSelector';
 import { CheckInReceipt } from '@/components/CheckInReceipt';
+import { AdminGuestPanel } from '@/components/AdminGuestPanel';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,30 +23,67 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { differenceInDays, differenceInHours } from 'date-fns';
+import { Eye } from 'lucide-react';
 
-type CheckInStep = 'select' | 'guest-form' | 'preview';
+type CheckInStep = 'select' | 'guest-selector' | 'guest-form' | 'preview';
+
+// Legacy Room interface for backward compatibility with UI
+interface LegacyRoom {
+  number: string;
+  type: string;
+  rate: number;
+  facilities: string[];
+  isOccupied: boolean;
+  guestName?: string;
+  guestAddress?: string;
+  guestKtp?: string;
+  guestPhone?: string;
+  checkInTime?: string;
+  paymentMethod?: PaymentMethod;
+}
+
+// Legacy ActiveGuest for CheckInReceipt
+interface LegacyActiveGuest {
+  name: string;
+  address: string;
+  ktpNumber: string;
+  phoneNumber?: string;
+}
 
 const RoomsPage = () => {
-  const { rooms, checkIn, checkOut, getOccupiedRooms, getAvailableRooms } = useRooms();
-  const { activeGuest, setGuest, clearGuest, hasActiveGuest, getMaskedKtp } = useActiveGuest();
+  const { rooms, checkIn, checkOut, getOccupiedRooms, getAvailableRooms, refreshRooms } = useRooms();
+  const { activeGuest, setGuest, selectExistingGuest, clearGuest, hasActiveGuest, getMaskedKtp } = useActiveGuest();
 
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<RoomRecord | null>(null);
   const [checkInStep, setCheckInStep] = useState<CheckInStep>('select');
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminGuestId, setAdminGuestId] = useState<string | null>(null);
 
   const occupiedCount = getOccupiedRooms().length;
   const availableCount = getAvailableRooms().length;
 
+  // Convert RoomRecord to LegacyRoom for RoomCard
+  const convertToLegacyRoom = (room: RoomRecord): LegacyRoom => ({
+    number: room.room_number,
+    type: room.room_type,
+    rate: room.rate_per_night,
+    facilities: getRoomTypeInfo(room.room_type)?.facilities || [],
+    isOccupied: room.status === 'occupied',
+    checkInTime: room.checkin_time ? new Date(room.checkin_time).toISOString() : undefined,
+  });
+
+  const legacyRooms = rooms.map(convertToLegacyRoom);
+
   // Handle room click
-  const handleRoomClick = (room: Room) => {
+  const handleRoomClick = (legacyRoom: LegacyRoom) => {
+    const room = rooms.find((r) => r.room_number === legacyRoom.number);
+    if (!room) return;
+
     setSelectedRoom(room);
-    if (!room.isOccupied) {
-      // For available rooms, check if we have an active guest
-      if (hasActiveGuest) {
-        setCheckInStep('preview');
-      } else {
-        setCheckInStep('guest-form');
-      }
+    if (room.status !== 'occupied') {
+      // For available rooms, show guest selector first
+      setCheckInStep('guest-selector');
     } else {
       setCheckInStep('select');
     }
@@ -55,34 +95,65 @@ const RoomsPage = () => {
     setCheckInStep('select');
   };
 
-  // Handle guest form submission
-  const handleGuestSubmit = (guest: ActiveGuest) => {
-    setGuest(guest);
+  // Handle new guest selection from GuestSelector
+  const handleNewGuest = () => {
+    setCheckInStep('guest-form');
+  };
+
+  // Handle existing guest selection from GuestSelector
+  const handleSelectExistingGuest = (guest: GuestRecord) => {
+    selectExistingGuest(guest);
     setCheckInStep('preview');
   };
 
+  // Handle guest form submission (new guest)
+  const handleGuestSubmit = async (legacyGuest: LegacyActiveGuest) => {
+    try {
+      await setGuest({
+        name: legacyGuest.name,
+        address: legacyGuest.address,
+        ktp_number: legacyGuest.ktpNumber,
+        phone: legacyGuest.phoneNumber,
+      });
+      setCheckInStep('preview');
+    } catch (err) {
+      console.error('Failed to create guest:', err);
+    }
+  };
+
   // Handle check-in confirmation (print & update status)
-  const handleCheckInConfirm = (paymentMethod: PaymentMethod) => {
+  const handleCheckInConfirm = async (paymentMethod: PaymentMethod) => {
     if (selectedRoom && activeGuest) {
       // Print the receipt
       window.print();
-      
+
       // Update room status AFTER print
-      checkIn(selectedRoom.number, activeGuest, paymentMethod);
-      
+      try {
+        await checkIn(activeGuest.id, [selectedRoom.room_number]);
+        await refreshRooms();
+      } catch (err) {
+        console.error('Check-in failed:', err);
+      }
+
       // Close dialog and return to room selection
       closeDialog();
     }
   };
 
   // Handle check-out
-  const handleCheckOut = () => {
-    if (selectedRoom && selectedRoom.isOccupied) {
+  const handleCheckOut = async () => {
+    if (selectedRoom && selectedRoom.status === 'occupied') {
       const checkedOutRoom = { ...selectedRoom };
-      checkOut(selectedRoom.number);
+
+      try {
+        await checkOut(selectedRoom.room_number);
+        await refreshRooms();
+      } catch (err) {
+        console.error('Check-out failed:', err);
+      }
 
       // Calculate duration and total
-      const checkInDate = new Date(checkedOutRoom.checkInTime || new Date());
+      const checkInDate = new Date(checkedOutRoom.checkin_time || Date.now());
       const checkOutDate = new Date();
       let nights = differenceInDays(checkOutDate, checkInDate);
 
@@ -93,25 +164,32 @@ const RoomsPage = () => {
       // Minimum 1 night
       nights = Math.max(1, nights);
 
-      const total = nights * checkedOutRoom.rate;
-      const typeInfo = getRoomTypeInfo(checkedOutRoom.type);
+      const total = nights * checkedOutRoom.rate_per_night;
+      const typeInfo = getRoomTypeInfo(checkedOutRoom.room_type);
 
       setReceipt({
         hotelName: 'Hotel Yonanda',
         timestamp: new Date().toISOString(),
-        roomNumber: checkedOutRoom.number,
-        guestName: checkedOutRoom.guestName,
+        roomNumber: checkedOutRoom.room_number,
         items: [],
         total,
         type: 'room',
-        checkInTime: checkedOutRoom.checkInTime,
+        checkInTime: checkedOutRoom.checkin_time ? new Date(checkedOutRoom.checkin_time).toISOString() : undefined,
         checkOutTime: new Date().toISOString(),
         nights,
         roomType: typeInfo?.label,
-        roomRate: checkedOutRoom.rate,
+        roomRate: checkedOutRoom.rate_per_night,
       });
 
       closeDialog();
+    }
+  };
+
+  // Handle view guest details (Admin)
+  const handleViewGuestDetails = () => {
+    if (selectedRoom?.guest_id) {
+      setAdminGuestId(selectedRoom.guest_id);
+      setShowAdminPanel(true);
     }
   };
 
@@ -123,7 +201,20 @@ const RoomsPage = () => {
     setReceipt(null);
   };
 
-  const typeInfo = selectedRoom ? getRoomTypeInfo(selectedRoom.type) : null;
+  const typeInfo = selectedRoom ? getRoomTypeInfo(selectedRoom.room_type) : null;
+
+  // Convert activeGuest to legacy format for CheckInReceipt
+  const legacyActiveGuest: LegacyActiveGuest | null = activeGuest
+    ? {
+      name: activeGuest.name,
+      address: activeGuest.address,
+      ktpNumber: activeGuest.ktp_number,
+      phoneNumber: activeGuest.phone || undefined,
+    }
+    : null;
+
+  // Legacy room for CheckInReceipt
+  const legacySelectedRoom = selectedRoom ? convertToLegacyRoom(selectedRoom) : null;
 
   return (
     <div className="min-h-screen bg-background pb-12">
@@ -135,7 +226,13 @@ const RoomsPage = () => {
       {/* Active Guest Badge */}
       {hasActiveGuest && activeGuest && (
         <div className="container px-4 pt-4">
-          <ActiveGuestBadge guest={activeGuest} onClear={clearGuest} />
+          <ActiveGuestBadge
+            guest={{
+              name: activeGuest.name,
+              address: activeGuest.address,
+            }}
+            onClear={clearGuest}
+          />
         </div>
       )}
 
@@ -154,22 +251,43 @@ const RoomsPage = () => {
       {/* Room Grid */}
       <main className="container px-4 pb-8">
         <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
-          {rooms.map((room) => (
+          {legacyRooms.map((room) => (
             <RoomCard key={room.number} room={room} onClick={handleRoomClick} />
           ))}
         </div>
       </main>
 
-      {/* Room Detail Dialog (for occupied rooms) */}
+      {/* Guest Selector Dialog */}
       <Dialog
-        open={!!selectedRoom && selectedRoom.isOccupied && checkInStep === 'select'}
+        open={!!selectedRoom && selectedRoom.status !== 'occupied' && checkInStep === 'guest-selector'}
         onOpenChange={() => closeDialog()}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Kamar {selectedRoom?.number}</DialogTitle>
+            <DialogTitle>Check-In Kamar {selectedRoom?.room_number}</DialogTitle>
             <DialogDescription>
-              {typeInfo?.label} - {formatCurrency(selectedRoom?.rate || 0)}/malam
+              {typeInfo?.label} - {formatCurrency(selectedRoom?.rate_per_night || 0)}/malam
+            </DialogDescription>
+          </DialogHeader>
+
+          <GuestSelector
+            onNewGuest={handleNewGuest}
+            onSelectGuest={handleSelectExistingGuest}
+            onCancel={closeDialog}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Room Detail Dialog (for occupied rooms) */}
+      <Dialog
+        open={!!selectedRoom && selectedRoom.status === 'occupied' && checkInStep === 'select'}
+        onOpenChange={() => closeDialog()}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kamar {selectedRoom?.room_number}</DialogTitle>
+            <DialogDescription>
+              {typeInfo?.label} - {formatCurrency(selectedRoom?.rate_per_night || 0)}/malam
             </DialogDescription>
           </DialogHeader>
 
@@ -192,18 +310,25 @@ const RoomsPage = () => {
             {/* Status */}
             <div className="rounded-lg bg-hotel-occupied/10 p-4">
               <p className="font-medium text-hotel-occupied">Status: Terisi</p>
-              {selectedRoom?.guestName && (
-                <p className="text-sm text-muted-foreground">Tamu: {selectedRoom.guestName}</p>
-              )}
-              {selectedRoom?.checkInTime && (
+              {selectedRoom?.checkin_time && (
                 <p className="text-sm text-muted-foreground">
-                  Check-in: {new Date(selectedRoom.checkInTime).toLocaleString('id-ID')}
+                  Check-in: {new Date(selectedRoom.checkin_time).toLocaleString('id-ID')}
                 </p>
               )}
             </div>
           </div>
 
           <DialogFooter className="flex gap-2 sm:gap-2">
+            {selectedRoom?.guest_id && (
+              <Button
+                variant="outline"
+                onClick={handleViewGuestDetails}
+                className="flex-1"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Lihat Data Tamu
+              </Button>
+            )}
             <Button
               onClick={handleCheckOut}
               className="flex-1 touch-button bg-hotel-occupied hover:bg-hotel-occupied/90"
@@ -216,14 +341,14 @@ const RoomsPage = () => {
 
       {/* Guest Form Dialog (for new guests) */}
       <Dialog
-        open={!!selectedRoom && !selectedRoom.isOccupied && checkInStep === 'guest-form'}
+        open={!!selectedRoom && selectedRoom.status !== 'occupied' && checkInStep === 'guest-form'}
         onOpenChange={() => closeDialog()}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Check-In Kamar {selectedRoom?.number}</DialogTitle>
+            <DialogTitle>Check-In Kamar {selectedRoom?.room_number}</DialogTitle>
             <DialogDescription>
-              {typeInfo?.label} - {formatCurrency(selectedRoom?.rate || 0)}/malam
+              {typeInfo?.label} - {formatCurrency(selectedRoom?.rate_per_night || 0)}/malam
             </DialogDescription>
           </DialogHeader>
 
@@ -232,11 +357,11 @@ const RoomsPage = () => {
       </Dialog>
 
       {/* Check-In Receipt Preview */}
-      {selectedRoom && !selectedRoom.isOccupied && checkInStep === 'preview' && activeGuest && (
+      {selectedRoom && selectedRoom.status !== 'occupied' && checkInStep === 'preview' && legacyActiveGuest && legacySelectedRoom && (
         <CheckInReceipt
-          room={selectedRoom}
-          guest={activeGuest}
-          maskedKtp={getMaskedKtp(activeGuest.ktpNumber)}
+          room={legacySelectedRoom}
+          guest={legacyActiveGuest}
+          maskedKtp={getMaskedKtp(legacyActiveGuest.ktpNumber)}
           onConfirm={handleCheckInConfirm}
           onCancel={closeDialog}
         />
@@ -244,6 +369,17 @@ const RoomsPage = () => {
 
       {/* Check-Out Receipt Modal */}
       {receipt && <Receipt data={receipt} onClose={closeReceipt} onPrint={handlePrint} />}
+
+      {/* Admin Guest Panel */}
+      {showAdminPanel && adminGuestId && (
+        <AdminGuestPanel
+          guestId={adminGuestId}
+          onClose={() => {
+            setShowAdminPanel(false);
+            setAdminGuestId(null);
+          }}
+        />
+      )}
 
       {/* Footer Branding */}
       <Footer />

@@ -1,9 +1,14 @@
-import { ActiveGuest } from '@/types/hotel';
 import { User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+// Simplified interface that only uses what we display
+interface ActiveGuestBadgeGuest {
+  name: string;
+  address: string;
+}
+
 interface ActiveGuestBadgeProps {
-  guest: ActiveGuest;
+  guest: ActiveGuestBadgeGuest;
   onClear: () => void;
 }
 

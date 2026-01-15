@@ -1,10 +1,18 @@
-import { Room } from '@/types/hotel';
+import { RoomType } from '@/types/hotel';
 import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
 import { cn } from '@/lib/utils';
 
+// Room interface for RoomCard (simplified)
+interface RoomCardRoom {
+  number: string;
+  type: RoomType | string;
+  rate: number;
+  isOccupied: boolean;
+}
+
 interface RoomCardProps {
-  room: Room;
-  onClick: (room: Room) => void;
+  room: RoomCardRoom;
+  onClick: (room: RoomCardRoom) => void;
 }
 
 export function RoomCard({ room, onClick }: RoomCardProps) {
