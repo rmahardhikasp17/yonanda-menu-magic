@@ -46,18 +46,18 @@ export function CheckInReceipt({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+      <div className="w-full max-w-md max-h-[95vh] flex flex-col rounded-2xl bg-white shadow-2xl my-auto">
         {/* Header actions */}
-        <div className="flex items-center justify-between border-b p-4 no-print">
+        <div className="flex items-center justify-between border-b p-4 no-print flex-shrink-0">
           <h2 className="text-lg font-bold text-foreground">Preview Nota Check-In</h2>
           <Button variant="ghost" size="icon" onClick={onCancel}>
             <X className="h-5 w-5" />
           </Button>
         </div>
 
-        {/* Receipt content */}
-        <div className="print-area p-6">
+        {/* Receipt content - scrollable */}
+        <div className="print-area p-6 flex-1 overflow-y-auto">
           <div className="text-center">
             <img
               src="/logo-small.png"
@@ -162,7 +162,7 @@ export function CheckInReceipt({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3 border-t p-4 no-print">
+        <div className="flex gap-3 border-t p-4 no-print flex-shrink-0">
           <Button variant="outline" onClick={onCancel} className="flex-1">
             Batal
           </Button>

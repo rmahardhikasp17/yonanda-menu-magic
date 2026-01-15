@@ -8,7 +8,6 @@ import { PageHeader } from '@/components/PageHeader';
 import { RoomCard } from '@/components/RoomCard';
 import { Receipt } from '@/components/Receipt';
 import { Footer } from '@/components/Footer';
-import { ActiveGuestBadge } from '@/components/ActiveGuestBadge';
 import { GuestForm } from '@/components/GuestForm';
 import { GuestSelector } from '@/components/GuestSelector';
 import { CheckInReceipt } from '@/components/CheckInReceipt';
@@ -223,18 +222,6 @@ const RoomsPage = () => {
         subtitle={`${availableCount} tersedia · ${occupiedCount} terisi`}
       />
 
-      {/* Active Guest Badge */}
-      {hasActiveGuest && activeGuest && (
-        <div className="container px-4 pt-4">
-          <ActiveGuestBadge
-            guest={{
-              name: activeGuest.name,
-              address: activeGuest.address,
-            }}
-            onClear={clearGuest}
-          />
-        </div>
-      )}
 
       {/* Legend */}
       <div className="container flex items-center gap-6 px-4 py-4">
