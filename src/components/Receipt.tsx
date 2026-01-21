@@ -73,15 +73,19 @@ function convertToPrintData(data: ReceiptData): ReceiptPrintData {
 export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
   const [isPrinting, setIsPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [printSuccess, setPrintSuccess] = useState(false);
 
   // Get printer settings from Admin config
   const printerMode = getPrinterMode();
   const isSetupComplete = isPrinterSetupComplete();
 
-  // Check if we can do direct print
   const canDirectPrintSerial = printerMode === 'serial' && isSerialSupported() && isSetupComplete;
   const canDirectPrintBluetooth = printerMode === 'bluetooth' && isBluetoothSupported() && isBluetoothPrinterSetup();
   const canDirectPrint = canDirectPrintSerial || canDirectPrintBluetooth;
+
+  // Check if this is checkout (only 1 copy needed)
+  const isCheckout = data.type === 'room';
+  const printCopies = isCheckout ? 1 : 2;
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'dd/MM/yyyy', { locale: id });
@@ -91,22 +95,32 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
     return format(new Date(dateString), 'HH:mm', { locale: id });
   };
 
-  // Direct print handler (no dialog!)
+  // Direct print handler - prints 2 copies for non-checkout
   const handlePrint = async () => {
     setError(null);
+    setPrintSuccess(false);
 
     if (canDirectPrint) {
       setIsPrinting(true);
       try {
         const printData = convertToPrintData(data);
 
-        if (canDirectPrintSerial) {
-          await printReceiptDirect(printData);
-        } else if (canDirectPrintBluetooth) {
-          await printReceiptBluetooth(printData);
+        // Print multiple copies
+        for (let i = 0; i < printCopies; i++) {
+          if (canDirectPrintSerial) {
+            await printReceiptDirect(printData);
+          } else if (canDirectPrintBluetooth) {
+            await printReceiptBluetooth(printData);
+          }
+
+          // Small delay between copies
+          if (i < printCopies - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
 
         onPrint();
+        setPrintSuccess(true);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Gagal mencetak';
         setError(message);
@@ -117,6 +131,7 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
       // Browser print fallback
       onPrint();
       window.print();
+      setPrintSuccess(true);
     }
   };
 
@@ -267,6 +282,13 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
 
         {/* Print button - NOT PRINTED */}
         <div className="border-t p-3 no-print flex-shrink-0 space-y-2">
+          {/* Success message */}
+          {printSuccess && (
+            <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 p-2 rounded">
+              <span>✓ Berhasil mencetak {printCopies} nota!</span>
+            </div>
+          )}
+
           {/* Error message */}
           {error && (
             <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded">
@@ -276,7 +298,7 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
           )}
 
           <Button 
-            onClick={handlePrint}
+            onClick={handlePrint} 
             className="w-full" 
             size="lg"
             disabled={isPrinting}
@@ -284,19 +306,32 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
             {isPrinting ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Mencetak...
+                Mencetak {printCopies} nota...
+              </>
+            ) : printSuccess ? (
+              <>
+                <Printer className="mr-2 h-5 w-5" />
+                Cetak Ulang ({printCopies}x)
               </>
             ) : (
               <>
                 <Printer className="mr-2 h-5 w-5" />
-                Cetak Nota
+                    Cetak Nota {!isCheckout && `(${printCopies}x)`}
               </>
             )}
           </Button>
 
+          {/* Close button after print */}
+          {printSuccess && (
+            <Button variant="outline" onClick={onClose} className="w-full">
+              Tutup
+            </Button>
+          )}
+
           {/* Mode indicator */}
           <p className="text-[10px] text-center text-muted-foreground">
             {getModeText()}
+            {!isCheckout && ' • 2 rangkap (tamu & kasir)'}
           </p>
         </div>
       </div>

@@ -57,6 +57,7 @@ export function CheckInReceipt({
   const [receiptNumber, setReceiptNumber] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [printSuccess, setPrintSuccess] = useState(false);
   const { getNextReceiptNumber, previewNextNumber } = useReceiptCounter();
 
   const typeInfo = getRoomTypeInfo(room.type);
@@ -70,6 +71,9 @@ export function CheckInReceipt({
   const canDirectPrintSerial = printerMode === 'serial' && isSerialSupported() && isSetupComplete;
   const canDirectPrintBluetooth = printerMode === 'bluetooth' && isBluetoothSupported() && isBluetoothPrinterSetup();
   const canDirectPrint = canDirectPrintSerial || canDirectPrintBluetooth;
+
+  // Check-in always prints 2 copies (tamu & kasir)
+  const printCopies = 2;
 
   // Show preview number, generate actual on confirm
   const displayNumber = receiptNumber || previewNextNumber('checkin');
@@ -89,10 +93,11 @@ export function CheckInReceipt({
     total: room.rate,
   });
 
-  // Combined confirm handler
+  // Combined confirm handler - prints 2 copies
   const handleConfirm = async () => {
     if (!paymentMethod) return;
     setError(null);
+    setPrintSuccess(false);
 
     // Generate actual receipt number
     const actualNumber = getNextReceiptNumber('checkin');
@@ -103,13 +108,22 @@ export function CheckInReceipt({
       try {
         const printData = buildPrintData(actualNumber, paymentMethod);
 
-        if (canDirectPrintSerial) {
-          await printReceiptDirect(printData);
-        } else if (canDirectPrintBluetooth) {
-          await printReceiptBluetooth(printData);
+        // Print 2 copies
+        for (let i = 0; i < printCopies; i++) {
+          if (canDirectPrintSerial) {
+            await printReceiptDirect(printData);
+          } else if (canDirectPrintBluetooth) {
+            await printReceiptBluetooth(printData);
+          }
+
+          // Small delay between copies
+          if (i < printCopies - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
 
-        onConfirm(paymentMethod);
+        setPrintSuccess(true);
+        // Don't auto-close, let user close manually or confirm
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Gagal mencetak';
         setError(message);
@@ -120,8 +134,15 @@ export function CheckInReceipt({
       // Browser print fallback
       setTimeout(() => {
         window.print();
-        onConfirm(paymentMethod);
+        setPrintSuccess(true);
       }, 100);
+    }
+  };
+
+  // Complete check-in after printing
+  const handleComplete = () => {
+    if (paymentMethod) {
+      onConfirm(paymentMethod);
     }
   };
 
@@ -279,6 +300,12 @@ export function CheckInReceipt({
               </button>
             </div>
           </div>
+          {/* Success message */}
+          {printSuccess && (
+            <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 p-2 rounded">
+              <span>✓ Berhasil mencetak {printCopies} nota!</span>
+            </div>
+          )}
 
           {/* Error message */}
           {error && (
@@ -289,33 +316,63 @@ export function CheckInReceipt({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onCancel} className="flex-1">
-              Batal
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={!paymentMethod || isPrinting}
-              className="flex-1"
-              size="lg"
-            >
-              {isPrinting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Mencetak...
-                </>
-              ) : (
-                <>
-                  <Printer className="mr-2 h-4 w-4" />
-                  Cetak & Check-In
-                </>
-              )}
-            </Button>
-          </div>
+          {!printSuccess ? (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onCancel} className="flex-1">
+                Batal
+              </Button>
+              <Button
+                onClick={handleConfirm}
+                disabled={!paymentMethod || isPrinting}
+                className="flex-1"
+                size="lg"
+              >
+                {isPrinting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Mencetak {printCopies} nota...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Cetak Nota ({printCopies}x)
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Button
+                onClick={handleConfirm}
+                variant="outline"
+                disabled={isPrinting}
+                className="w-full"
+              >
+                {isPrinting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Mencetak...
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="mr-2 h-4 w-4" />
+                      Cetak Ulang ({printCopies}x)
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleComplete}
+                  className="w-full"
+                  size="lg"
+                >
+                  ✓ Selesai & Check-In
+                </Button>
+              </div>
+          )}
 
           {/* Mode indicator */}
           <p className="text-[10px] text-center text-muted-foreground">
-            {getModeText()}
+            {getModeText()} • 2 rangkap (tamu & kasir)
           </p>
         </div>
       </div>

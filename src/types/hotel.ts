@@ -111,6 +111,7 @@ export interface ReceiptData {
   nights?: number;
   roomType?: string;
   roomRate?: number;
+  paymentMethod?: PaymentMethod;
 }
 
 // Re-export IndexedDB types for convenience
