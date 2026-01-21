@@ -22,6 +22,9 @@ Dokumen ini berisi **spesifikasi template nota universal** Hotel Yonanda untuk t
 ```
 ================================
         HOTEL YONANDA
+   Jl. Mayor Soeyoto Km 6
+     Jimbaran-Bandungan
+       081392506299
 --------------------------------
 Tanggal : {{DATE}}
 Jam     : {{TIME}}
@@ -96,6 +99,9 @@ No. KTP   : {{MASKED_KTP}}
 ```
 ================================
         HOTEL YONANDA
+   Jl. Mayor Soeyoto Km 6
+     Jimbaran-Bandungan
+       081392506299
 --------------------------------
 Tanggal : 22/01/2026
 Jam     : 14:30
@@ -125,6 +131,9 @@ Developed System by Nekat Digital
 ```
 ================================
         HOTEL YONANDA
+   Jl. Mayor Soeyoto Km 6
+     Jimbaran-Bandungan
+       081392506299
 --------------------------------
 Tanggal : 24/01/2026
 Jam     : 11:45
@@ -156,6 +165,9 @@ Developed System by Nekat Digital
 ```
 ================================
         HOTEL YONANDA
+   Jl. Mayor Soeyoto Km 6
+     Jimbaran-Bandungan
+       081392506299
 --------------------------------
 Tanggal : 22/01/2026
 Jam     : 19:30
@@ -182,6 +194,9 @@ Developed System by Nekat Digital
 ```
 ================================
         HOTEL YONANDA
+   Jl. Mayor Soeyoto Km 6
+     Jimbaran-Bandungan
+       081392506299
 --------------------------------
 Tanggal : 22/01/2026
 Jam     : 13:45

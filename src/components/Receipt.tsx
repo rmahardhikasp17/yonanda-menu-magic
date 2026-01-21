@@ -159,6 +159,8 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
           {/* Header */}
           <div className="receipt-header text-center">
             <div className="text-sm font-bold">HOTEL YONANDA</div>
+            <div className="text-[9px]">Jl. Mayor Soeyoto Km 6 Jimbaran-Bandungan</div>
+            <div className="text-[9px]">081392506299</div>
             <div className="text-[10px]">Terima Kasih Atas</div>
             <div className="text-[10px]">Kunjungan Anda</div>
           </div>

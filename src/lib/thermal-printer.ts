@@ -381,6 +381,9 @@ async function printReceiptToSerial(port: SerialPort, data: ReceiptPrintData): P
     await sendCommandToSerial(port, ESC_POS.ALIGN_CENTER);
     await sendCommandToSerial(port, ESC_POS.FONT_DOUBLE_WIDTH);
     await printLineSerial(port, 'HOTEL YONANDA');
+    await printLineSerial(port, 'Jl. Mayor Soeyoto Km 6');
+    await printLineSerial(port, 'Jimbaran-Bandungan');
+    await printLineSerial(port, '081392506299');
 
     await sendCommandToSerial(port, ESC_POS.FONT_NORMAL);
     await printLineSerial(port, 'Terima Kasih Atas');
@@ -829,6 +832,9 @@ export async function printReceipt(
     await sendCommand(char, ESC_POS.ALIGN_CENTER);
     await sendCommand(char, ESC_POS.FONT_DOUBLE_WIDTH);
     await printLine(char, 'HOTEL YONANDA');
+    await printLine(char, 'Jl. Mayor Soeyoto Km 6');
+    await printLine(char, 'Jimbaran-Bandungan');
+    await printLine(char, '081392506299');
 
     await sendCommand(char, ESC_POS.FONT_NORMAL);
     await printLine(char, 'Terima Kasih Atas');
