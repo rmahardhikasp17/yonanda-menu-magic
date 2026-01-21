@@ -2,21 +2,23 @@
  * Receipt Component - Thermal 58mm Optimized
  * 
  * Professional receipt layout for thermal printers
- * - 58mm paper width (~48mm printable)
- * - Monospace font
- * - Serial/COM Port printing (PRIMARY - no dialog after setup)
- * - Bluetooth printing (fallback)
- * - Browser print (legacy fallback)
+ * - Uses printer settings from Admin/Owner Menu
+ * - Direct print without mode selection (uses saved config)
  */
 
+import { useState } from 'react';
 import { ReceiptData } from '@/types/hotel';
 import { formatCurrency } from '@/data/roomData';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Printer, X, Bluetooth, Loader2, AlertCircle, Usb, Settings } from 'lucide-react';
-import { useThermalPrinter, PrinterMode } from '@/hooks/useThermalPrinter';
-import { ReceiptPrintData } from '@/lib/thermal-printer';
+import { Printer, X, Loader2, AlertCircle } from 'lucide-react';
+import {
+  ReceiptPrintData,
+  printReceiptDirect,
+  isSerialSupported,
+} from '@/lib/thermal-printer';
+import { getPrinterMode, isPrinterSetupComplete } from '@/components/PrinterSettings';
 
 interface ReceiptProps {
   data: ReceiptData;
@@ -64,21 +66,13 @@ function convertToPrintData(data: ReceiptData): ReceiptPrintData {
 }
 
 export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
-  const {
-    status,
-    isSerialSupported,
-    isBluetoothSupported,
-    isConnecting,
-    isPrinting,
-    printerMode,
-    hasSavedPort,
-    setPrinterMode,
-    setupPrinter,
-    connect,
-    disconnect,
-    print,
-    clearSavedPrinter,
-  } = useThermalPrinter();
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get printer settings from Admin config
+  const printerMode = getPrinterMode();
+  const isSetupComplete = isPrinterSetupComplete();
+  const canDirectPrint = printerMode === 'serial' && isSerialSupported() && isSetupComplete;
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'dd/MM/yyyy', { locale: id });
@@ -88,34 +82,28 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
     return format(new Date(dateString), 'HH:mm', { locale: id });
   };
 
-  // Direct print handler (Serial/COM Port - no dialog!)
-  const handleDirectPrint = async () => {
-    const printData = convertToPrintData(data);
-    const success = await print(printData);
+  // Direct print handler (no dialog!)
+  const handlePrint = async () => {
+    setError(null);
 
-    if (success) {
-      onPrint();
-    }
-  };
-
-  // Browser print handler (fallback)
-  const handleBrowserPrint = () => {
-    onPrint();
-    window.print();
-  };
-
-  // Mode button styles
-  const getModeButtonClass = (mode: PrinterMode, isActive: boolean, isDisabled: boolean) => {
-    let base = 'flex-1 flex items-center justify-center gap-1 py-2 px-2 rounded-lg border-2 text-xs font-medium transition-all';
-    if (isDisabled) {
-      base += ' opacity-50 cursor-not-allowed';
-    }
-    if (isActive) {
-      base += ' border-blue-500 bg-blue-50 text-blue-700';
+    if (canDirectPrint) {
+      // Serial/COM Port - direct print
+      setIsPrinting(true);
+      try {
+        const printData = convertToPrintData(data);
+        await printReceiptDirect(printData);
+        onPrint();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Gagal mencetak';
+        setError(message);
+      } finally {
+        setIsPrinting(false);
+      }
     } else {
-      base += ' border-gray-200 text-gray-500';
+      // Browser print fallback
+      onPrint();
+      window.print();
     }
-    return base;
   };
 
   return (
@@ -256,175 +244,41 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
         </div>
         {/* ===== PRINT AREA END ===== */}
 
-        {/* Print options - NOT PRINTED */}
-        <div className="border-t p-3 no-print flex-shrink-0 space-y-3">
-
-          {/* Printer Status (Serial mode) */}
-          {printerMode === 'serial' && isSerialSupported && (
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Usb className={`h-4 w-4 ${hasSavedPort ? 'text-green-500' : 'text-gray-400'}`} />
-                <span className={hasSavedPort ? 'text-green-600' : 'text-gray-500'}>
-                  {hasSavedPort ? 'COM Port tersimpan' : 'Belum setup'}
-                </span>
-              </div>
-              {hasSavedPort ? (
-                <button
-                  onClick={clearSavedPrinter}
-                  className="text-xs text-red-500 hover:text-red-700"
-                >
-                  Reset
-                </button>
-              ) : (
-                <button
-                  onClick={setupPrinter}
-                  disabled={isConnecting}
-                  className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50 flex items-center gap-1"
-                >
-                  <Settings className="h-3 w-3" />
-                  Setup Printer
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Printer Status (Bluetooth mode) */}
-          {printerMode === 'bluetooth' && isBluetoothSupported && (
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Bluetooth className={`h-4 w-4 ${status.isConnected ? 'text-blue-500' : 'text-gray-400'}`} />
-                <span className={status.isConnected ? 'text-blue-600' : 'text-gray-500'}>
-                  {status.isConnected
-                    ? `Terhubung: ${status.deviceName}`
-                    : 'Tidak terhubung'}
-                </span>
-              </div>
-              {status.isConnected ? (
-                <button
-                  onClick={disconnect}
-                  className="text-xs text-red-500 hover:text-red-700"
-                >
-                  Putuskan
-                </button>
-              ) : (
-                <button
-                  onClick={connect}
-                  disabled={isConnecting}
-                  className="text-xs text-blue-500 hover:text-blue-700 disabled:opacity-50"
-                >
-                  {isConnecting ? 'Menghubungkan...' : 'Hubungkan'}
-                </button>
-              )}
-            </div>
-          )}
-
+        {/* Print button - NOT PRINTED */}
+        <div className="border-t p-3 no-print flex-shrink-0 space-y-2">
           {/* Error message */}
-          {status.error && (
+          {error && (
             <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
-              <span>{status.error}</span>
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Print Mode Toggle */}
-          <div className="flex gap-1">
-            <button
-              onClick={() => setPrinterMode('serial')}
-              disabled={!isSerialSupported}
-              className={getModeButtonClass('serial', printerMode === 'serial', !isSerialSupported)}
-            >
-              <Usb className="h-3 w-3" />
-              COM Port
-            </button>
-            <button
-              onClick={() => setPrinterMode('bluetooth')}
-              disabled={!isBluetoothSupported}
-              className={getModeButtonClass('bluetooth', printerMode === 'bluetooth', !isBluetoothSupported)}
-            >
-              <Bluetooth className="h-3 w-3" />
-              Bluetooth
-            </button>
-            <button
-              onClick={() => setPrinterMode('browser')}
-              className={getModeButtonClass('browser', printerMode === 'browser', false)}
-            >
-              <Printer className="h-3 w-3" />
-              Browser
-            </button>
-          </div>
+          <Button 
+            onClick={handlePrint}
+            className="w-full"
+            size="lg"
+            disabled={isPrinting}
+          >
+            {isPrinting ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Mencetak...
+              </>
+            ) : (
+              <>
+                <Printer className="mr-2 h-5 w-5" />
+                Cetak Nota
+              </>
+            )}
+          </Button>
 
-          {/* Print Button */}
-          {printerMode === 'serial' && isSerialSupported ? (
-            <Button
-              onClick={handleDirectPrint}
-              className="w-full"
-              size="lg"
-              disabled={isPrinting || isConnecting || !hasSavedPort}
-            >
-              {isPrinting ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Mencetak...
-                </>
-              ) : !hasSavedPort ? (
-                <>
-                  <Settings className="mr-2 h-5 w-5" />
-                  Setup Printer Dulu
-                </>
-              ) : (
-                <>
-                  <Printer className="mr-2 h-5 w-5" />
-                  Cetak Langsung
-                </>
-              )}
-            </Button>
-          ) : printerMode === 'bluetooth' && isBluetoothSupported ? (
-            <Button
-              onClick={handleDirectPrint}
-              className="w-full"
-              size="lg"
-              disabled={isPrinting || isConnecting}
-            >
-              {isPrinting ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Mencetak...
-                </>
-              ) : isConnecting ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Menghubungkan...
-                </>
-              ) : (
-                <>
-                  <Bluetooth className="mr-2 h-5 w-5" />
-                  Cetak Bluetooth
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button onClick={handleBrowserPrint} className="w-full" size="lg">
-              <Printer className="mr-2 h-5 w-5" />
-              Cetak Nota
-            </Button>
-          )}
-
-          {/* Mode-specific notes */}
-          {printerMode === 'serial' && !hasSavedPort && (
-            <p className="text-[10px] text-amber-600 text-center">
-              Klik "Setup Printer" untuk memilih COM Port (sekali saja)
-            </p>
-          )}
-          {printerMode === 'serial' && hasSavedPort && (
-            <p className="text-[10px] text-green-600 text-center">
-              ✓ Printer langsung cetak tanpa dialog
-            </p>
-          )}
-          {printerMode === 'browser' && (
-            <p className="text-[10px] text-gray-500 text-center">
-              Pastikan printer thermal sudah terpasang sebagai printer default
-            </p>
-          )}
+          {/* Mode indicator */}
+          <p className="text-[10px] text-center text-muted-foreground">
+            {canDirectPrint
+              ? '✓ Cetak langsung ke COM Port'
+              : 'Menggunakan dialog print browser'}
+          </p>
         </div>
       </div>
     </div>

@@ -2,23 +2,24 @@
  * Check-In Receipt Component - Thermal 58mm Optimized
  * 
  * Professional check-in receipt for thermal printers
- * - 58mm paper width
- * - Payment method selection
- * - Serial/COM Port printing (PRIMARY - no dialog after setup)
- * - Bluetooth printing (fallback)
- * - Browser print (legacy fallback)
+ * - Uses printer settings from Admin/Owner Menu
+ * - Direct print without mode selection (uses saved config)
  */
 
 import { useState } from 'react';
 import { PaymentMethod } from '@/types/hotel';
 import { useReceiptCounter } from '@/hooks/useReceiptCounter';
-import { useThermalPrinter, PrinterMode } from '@/hooks/useThermalPrinter';
 import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
-import { ReceiptPrintData } from '@/lib/thermal-printer';
+import {
+  ReceiptPrintData,
+  printReceiptDirect,
+  isSerialSupported,
+} from '@/lib/thermal-printer';
+import { getPrinterMode, isPrinterSetupComplete } from '@/components/PrinterSettings';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
-import { Printer, X, Banknote, QrCode, Bluetooth, Loader2, AlertCircle, Usb, Settings } from 'lucide-react';
+import { Printer, X, Banknote, QrCode, Loader2, AlertCircle } from 'lucide-react';
 
 interface CheckInReceiptRoom {
   number: string;
@@ -50,25 +51,17 @@ export function CheckInReceipt({
 }: CheckInReceiptProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [receiptNumber, setReceiptNumber] = useState<string | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { getNextReceiptNumber, previewNextNumber } = useReceiptCounter();
-  const {
-    status,
-    isSerialSupported,
-    isBluetoothSupported,
-    isConnecting,
-    isPrinting,
-    printerMode,
-    hasSavedPort,
-    setPrinterMode,
-    setupPrinter,
-    connect,
-    disconnect,
-    print,
-    clearSavedPrinter,
-  } = useThermalPrinter();
 
   const typeInfo = getRoomTypeInfo(room.type);
   const now = new Date();
+
+  // Get printer settings from Admin config
+  const printerMode = getPrinterMode();
+  const isSetupComplete = isPrinterSetupComplete();
+  const canDirectPrint = printerMode === 'serial' && isSerialSupported() && isSetupComplete;
 
   // Show preview number, generate actual on confirm
   const displayNumber = receiptNumber || previewNextNumber('checkin');
@@ -88,58 +81,35 @@ export function CheckInReceipt({
     total: room.rate,
   });
 
-  // Direct print handler (Serial/COM Port or Bluetooth)
-  const handleDirectPrint = async () => {
+  // Combined confirm handler
+  const handleConfirm = async () => {
     if (!paymentMethod) return;
+    setError(null);
 
     // Generate actual receipt number
     const actualNumber = getNextReceiptNumber('checkin');
     setReceiptNumber(actualNumber);
 
-    // Print via Serial/Bluetooth
-    const printData = buildPrintData(actualNumber, paymentMethod);
-    const success = await print(printData);
-
-    if (success) {
-      onConfirm(paymentMethod);
-    }
-  };
-
-  // Browser print handler (fallback)
-  const handleBrowserPrint = () => {
-    if (!paymentMethod) return;
-
-    // Generate actual receipt number
-    const actualNumber = getNextReceiptNumber('checkin');
-    setReceiptNumber(actualNumber);
-
-    // Trigger print then confirm
-    setTimeout(() => {
-      window.print();
-      onConfirm(paymentMethod);
-    }, 100);
-  };
-
-  // Combined confirm handler based on print mode
-  const handleConfirm = () => {
-    if (!paymentMethod) return;
-
-    if (printerMode === 'serial' && isSerialSupported && hasSavedPort) {
-      handleDirectPrint();
-    } else if (printerMode === 'bluetooth' && isBluetoothSupported) {
-      handleDirectPrint();
+    if (canDirectPrint) {
+      // Serial/COM Port - direct print
+      setIsPrinting(true);
+      try {
+        const printData = buildPrintData(actualNumber, paymentMethod);
+        await printReceiptDirect(printData);
+        onConfirm(paymentMethod);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Gagal mencetak';
+        setError(message);
+      } finally {
+        setIsPrinting(false);
+      }
     } else {
-      handleBrowserPrint();
+      // Browser print fallback
+      setTimeout(() => {
+        window.print();
+        onConfirm(paymentMethod);
+      }, 100);
     }
-  };
-
-  // Mode button styles
-  const getModeButtonClass = (mode: PrinterMode, isActive: boolean, isDisabled: boolean) => {
-    let base = 'flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border-2 text-xs font-medium transition-all';
-    if (isDisabled) base += ' opacity-50 cursor-not-allowed';
-    if (isActive) base += ' border-blue-500 bg-blue-50 text-blue-700';
-    else base += ' border-gray-200 text-gray-500';
-    return base;
   };
 
   return (
@@ -256,7 +226,7 @@ export function CheckInReceipt({
         {/* ===== PRINT AREA END ===== */}
 
         {/* Payment Selection & Actions - NOT PRINTED */}
-        <div className="border-t p-3 no-print flex-shrink-0 space-y-2">
+        <div className="border-t p-3 no-print flex-shrink-0 space-y-3">
           {/* Payment Method Selection */}
           <div>
             <p className="text-xs font-medium mb-2">Metode Pembayaran:</p>
@@ -264,7 +234,7 @@ export function CheckInReceipt({
               <button
                 type="button"
                 onClick={() => setPaymentMethod('cash')}
-                className={`flex items-center justify-center gap-2 rounded-lg border-2 p-2.5 transition-all ${paymentMethod === 'cash'
+                className={`flex items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all ${paymentMethod === 'cash'
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-blue-300'
                   }`}
@@ -277,7 +247,7 @@ export function CheckInReceipt({
               <button
                 type="button"
                 onClick={() => setPaymentMethod('qris')}
-                className={`flex items-center justify-center gap-2 rounded-lg border-2 p-2.5 transition-all ${paymentMethod === 'qris'
+                className={`flex items-center justify-center gap-2 rounded-lg border-2 p-3 transition-all ${paymentMethod === 'qris'
                     ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-blue-300'
                   }`}
@@ -290,123 +260,45 @@ export function CheckInReceipt({
             </div>
           </div>
 
-          {/* Print Mode Toggle */}
-          <div className="flex gap-1">
-            <button
-              onClick={() => setPrinterMode('serial')}
-              disabled={!isSerialSupported}
-              className={getModeButtonClass('serial', printerMode === 'serial', !isSerialSupported)}
-            >
-              <Usb className="h-3 w-3" />
-              COM
-            </button>
-            <button
-              onClick={() => setPrinterMode('bluetooth')}
-              disabled={!isBluetoothSupported}
-              className={getModeButtonClass('bluetooth', printerMode === 'bluetooth', !isBluetoothSupported)}
-            >
-              <Bluetooth className="h-3 w-3" />
-              BT
-            </button>
-            <button
-              onClick={() => setPrinterMode('browser')}
-              className={getModeButtonClass('browser', printerMode === 'browser', false)}
-            >
-              <Printer className="h-3 w-3" />
-              Browser
-            </button>
-          </div>
-
-          {/* Printer Status (Serial mode) */}
-          {printerMode === 'serial' && isSerialSupported && (
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Usb className={`h-3 w-3 ${hasSavedPort ? 'text-green-500' : 'text-gray-400'}`} />
-                <span className={hasSavedPort ? 'text-green-600' : 'text-gray-500'}>
-                  {hasSavedPort ? 'COM Port ✓' : 'Belum setup'}
-                </span>
-              </div>
-              {hasSavedPort ? (
-                <button onClick={clearSavedPrinter} className="text-xs text-red-500">Reset</button>
-              ) : (
-                <button onClick={setupPrinter} disabled={isConnecting} className="text-xs text-blue-500 flex items-center gap-1">
-                  <Settings className="h-3 w-3" /> Setup
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Printer Status (Bluetooth mode) */}
-          {printerMode === 'bluetooth' && isBluetoothSupported && (
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Bluetooth className={`h-3 w-3 ${status.isConnected ? 'text-blue-500' : 'text-gray-400'}`} />
-                <span className={status.isConnected ? 'text-blue-600' : 'text-gray-500'}>
-                  {status.isConnected ? `${status.deviceName}` : 'Tidak terhubung'}
-                </span>
-              </div>
-              {status.isConnected ? (
-                <button onClick={disconnect} className="text-xs text-red-500">Putus</button>
-              ) : (
-                <button onClick={connect} disabled={isConnecting} className="text-xs text-blue-500">
-                  {isConnecting ? '...' : 'Hubungkan'}
-                </button>
-              )}
-            </div>
-          )}
-
           {/* Error message */}
-          {status.error && (
+          {error && (
             <div className="flex items-center gap-2 text-xs text-red-500 bg-red-50 p-2 rounded">
-              <AlertCircle className="h-3 w-3 flex-shrink-0" />
-              <span>{status.error}</span>
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2">
             <Button variant="outline" onClick={onCancel} className="flex-1">
               Batal
             </Button>
-            {printerMode === 'serial' && isSerialSupported ? (
-              <Button
-                onClick={handleConfirm}
-                disabled={!paymentMethod || isPrinting || isConnecting || !hasSavedPort}
-                className="flex-1"
-                size="lg"
-              >
-                {isPrinting ? (
-                  <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Cetak...</>
-                ) : !hasSavedPort ? (
-                  <><Settings className="mr-1 h-4 w-4" /> Setup</>
-                ) : (
-                  <><Printer className="mr-1 h-4 w-4" /> Cetak</>
-                )}
-              </Button>
-            ) : printerMode === 'bluetooth' && isBluetoothSupported ? (
-              <Button
-                onClick={handleConfirm}
-                disabled={!paymentMethod || isPrinting || isConnecting}
-                className="flex-1"
-                size="lg"
-              >
-                {isPrinting ? (
-                  <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Cetak...</>
-                ) : (
-                  <><Bluetooth className="mr-1 h-4 w-4" /> Cetak</>
-                )}
-              </Button>
-            ) : (
-                  <Button
-                    onClick={handleConfirm}
-                    disabled={!paymentMethod}
-                    className="flex-1"
-                    size="lg"
-                  >
-                    <Printer className="mr-1 h-4 w-4" /> Cetak
-                  </Button>
-            )}
+            <Button
+              onClick={handleConfirm}
+              disabled={!paymentMethod || isPrinting}
+              className="flex-1"
+              size="lg"
+            >
+              {isPrinting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Mencetak...
+                </>
+              ) : (
+                <>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Cetak & Check-In
+                </>
+              )}
+            </Button>
           </div>
+
+          {/* Mode indicator */}
+          <p className="text-[10px] text-center text-muted-foreground">
+            {canDirectPrint
+              ? '✓ Cetak langsung ke COM Port'
+              : 'Menggunakan dialog print browser'}
+          </p>
         </div>
       </div>
     </div>

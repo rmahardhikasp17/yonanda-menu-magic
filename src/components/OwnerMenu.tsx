@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { X, Lock, Eye, EyeOff, RotateCcw, Download, Shield, AlertTriangle, FileText, BedDouble } from 'lucide-react';
+import { X, Lock, Eye, EyeOff, RotateCcw, Download, Shield, AlertTriangle, FileText, BedDouble, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,12 +45,13 @@ import { ReceiptType, RECEIPT_PREFIXES } from '@/types/hotel';
 import { RECEIPT_TYPE_LABELS } from '@/lib/receipt-counter';
 import { exportTodayCSV } from '@/lib/export-csv';
 import { RoomManagement } from '@/components/RoomManagement';
+import { PrinterSettings } from '@/components/PrinterSettings';
 
 interface OwnerMenuProps {
     onClose: () => void;
 }
 
-type MenuView = 'pin' | 'main' | 'reset' | 'change-pin' | 'rooms';
+type MenuView = 'pin' | 'main' | 'reset' | 'change-pin' | 'rooms' | 'printer';
 
 export function OwnerMenu({ onClose }: OwnerMenuProps) {
     const [view, setView] = useState<MenuView>('pin');
@@ -215,6 +216,7 @@ export function OwnerMenu({ onClose }: OwnerMenuProps) {
                         {view === 'main' && 'Kelola counter dan audit sistem.'}
                         {view === 'reset' && `Reset counter ${resetType ? RECEIPT_TYPE_LABELS[resetType] : ''}`}
                         {view === 'change-pin' && 'Ubah PIN owner.'}
+                        {view === 'printer' && 'Pengaturan printer thermal.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -320,6 +322,14 @@ export function OwnerMenu({ onClose }: OwnerMenuProps) {
                             >
                                 <BedDouble className="mr-2 h-4 w-4" />
                                 Kelola Kamar
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="w-full justify-start"
+                                onClick={() => setView('printer')}
+                            >
+                                <Printer className="mr-2 h-4 w-4" />
+                                Pengaturan Printer
                             </Button>
                             <Button
                                 variant="outline"
@@ -441,6 +451,11 @@ export function OwnerMenu({ onClose }: OwnerMenuProps) {
                 {/* Room Management View */}
                 {view === 'rooms' && (
                     <RoomManagement onBack={() => setView('main')} />
+                )}
+
+                {/* Printer Settings View */}
+                {view === 'printer' && (
+                    <PrinterSettings onBack={() => setView('main')} />
                 )}
             </DialogContent>
         </Dialog>
