@@ -118,7 +118,7 @@ export function CheckInReceipt({
 
           // Small delay between copies
           if (i < printCopies - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
 
