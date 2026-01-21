@@ -2,12 +2,12 @@
  * PrinterSettings Component
  * 
  * Printer configuration for Owner Menu
- * - One-time COM Port setup (dialog only once)
- * - After setup: direct print without any dialog
+ * - Serial (COM Port) for Desktop: One-time setup, then direct print
+ * - Bluetooth for Mobile (Android): One-time setup, then auto-reconnect
  */
 
 import { useState, useEffect } from 'react';
-import { Usb, Bluetooth, Printer, Check, AlertCircle, Trash2, Loader2 } from 'lucide-react';
+import { Usb, Bluetooth, Printer, Check, AlertCircle, Trash2, Loader2, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -18,6 +18,12 @@ import {
   connectSerialPort,
   disconnectSerialPort,
   clearSerialPortInfo,
+  setupBluetoothPrinter,
+  isBluetoothPrinterSetup,
+  getSavedBluetoothDeviceName,
+  clearBluetoothDeviceInfo,
+  printReceiptBluetooth,
+  printReceiptDirect,
 } from '@/lib/thermal-printer';
 
 // LocalStorage keys for printer settings
@@ -35,7 +41,14 @@ export function getPrinterMode(): PrinterModeType {
   if (saved === 'serial' || saved === 'bluetooth' || saved === 'browser') {
     return saved;
   }
-  return isSerialSupported() ? 'serial' : 'browser';
+  // Default: Bluetooth for mobile, Serial for desktop
+  if (isBluetoothSupported() && !isSerialSupported()) {
+    return 'bluetooth';
+  }
+  if (isSerialSupported()) {
+    return 'serial';
+  }
+  return 'browser';
 }
 
 export function setPrinterMode(mode: PrinterModeType): void {
@@ -43,16 +56,41 @@ export function setPrinterMode(mode: PrinterModeType): void {
 }
 
 export function isPrinterSetupComplete(): boolean {
-  return localStorage.getItem(PRINTER_SETUP_COMPLETE_KEY) === 'true';
+  const mode = getPrinterMode();
+  if (mode === 'serial') {
+    return localStorage.getItem(PRINTER_SETUP_COMPLETE_KEY) === 'true';
+  }
+  if (mode === 'bluetooth') {
+    return isBluetoothPrinterSetup();
+  }
+  return true; // Browser mode doesn't need setup
 }
 
 export function setPrinterSetupComplete(complete: boolean): void {
   localStorage.setItem(PRINTER_SETUP_COMPLETE_KEY, complete ? 'true' : 'false');
 }
 
+/**
+ * Print using the configured printer mode
+ */
+export async function printWithConfig(data: any): Promise<void> {
+  const mode = getPrinterMode();
+
+  if (mode === 'serial' && isSerialSupported()) {
+    await printReceiptDirect(data);
+  } else if (mode === 'bluetooth' && isBluetoothSupported()) {
+    await printReceiptBluetooth(data);
+  } else {
+    // Browser mode - caller should handle window.print()
+    throw new Error('BROWSER_PRINT');
+  }
+}
+
 export function PrinterSettings({ onBack }: PrinterSettingsProps) {
   const [mode, setMode] = useState<PrinterModeType>(getPrinterMode());
-  const [isSetupComplete, setIsSetupComplete] = useState(isPrinterSetupComplete());
+  const [isSerialSetup, setIsSerialSetup] = useState(false);
+  const [isBluetoothSetup, setIsBluetoothSetup] = useState(false);
+  const [bluetoothDeviceName, setBluetoothDeviceName] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,21 +98,32 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
 
   const serialSupported = isSerialSupported();
   const bluetoothSupported = isBluetoothSupported();
+  const isMobile = !serialSupported && bluetoothSupported;
 
-  // Check if port is available on mount
+  // Check setup status on mount
   useEffect(() => {
-    if (mode === 'serial' && serialSupported) {
-      checkSerialPort();
-    }
-  }, [mode, serialSupported]);
+    checkSetupStatus();
+  }, [mode]);
 
-  const checkSerialPort = async () => {
-    try {
-      const port = await autoConnectSerialPort();
-      setIsSetupComplete(port !== null);
-      setPrinterSetupComplete(port !== null);
-    } catch {
-      setIsSetupComplete(false);
+  const checkSetupStatus = async () => {
+    // Check Serial
+    if (serialSupported) {
+      try {
+        const port = await autoConnectSerialPort();
+        setIsSerialSetup(port !== null);
+        setPrinterSetupComplete(port !== null);
+      } catch {
+        setIsSerialSetup(false);
+      }
+    }
+
+    // Check Bluetooth
+    if (bluetoothSupported) {
+      const btSetup = isBluetoothPrinterSetup();
+      setIsBluetoothSetup(btSetup);
+      if (btSetup) {
+        setBluetoothDeviceName(getSavedBluetoothDeviceName());
+      }
     }
   };
 
@@ -83,17 +132,10 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
     setPrinterMode(newMode);
     setError(null);
     setSuccess(null);
-    
-    // Reset setup status when changing mode
-    if (newMode !== 'serial') {
-      setIsSetupComplete(true); // Bluetooth and browser don't need setup
-      setPrinterSetupComplete(true);
-    } else {
-      checkSerialPort();
-    }
   };
 
-  const handleSetupPrinter = async () => {
+  // Setup Serial Printer
+  const handleSetupSerial = async () => {
     setIsConnecting(true);
     setError(null);
     setSuccess(null);
@@ -101,11 +143,11 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
     try {
       const port = await setupSerialPrinter();
       await connectSerialPort(port);
-      await disconnectSerialPort(); // Close after setup
-      
-      setIsSetupComplete(true);
+      await disconnectSerialPort();
+
+      setIsSerialSetup(true);
       setPrinterSetupComplete(true);
-      setSuccess('Printer berhasil disetup! Sekarang bisa langsung cetak tanpa dialog.');
+      setSuccess('COM Port berhasil disetup! Sekarang bisa langsung cetak.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal setup printer';
       setError(message);
@@ -114,25 +156,53 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
     }
   };
 
-  const handleResetPrinter = () => {
+  // Setup Bluetooth Printer
+  const handleSetupBluetooth = async () => {
+    setIsConnecting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const printer = await setupBluetoothPrinter();
+      
+      setIsBluetoothSetup(true);
+      setBluetoothDeviceName(printer.device.name || 'Bluetooth Printer');
+      setSuccess('Printer Bluetooth berhasil disetup! Sekarang bisa langsung cetak.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Gagal setup printer';
+      setError(message);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Reset Serial
+  const handleResetSerial = () => {
     clearSerialPortInfo();
-    setIsSetupComplete(false);
+    setIsSerialSetup(false);
     setPrinterSetupComplete(false);
     setSuccess(null);
     setError(null);
   };
 
+  // Reset Bluetooth
+  const handleResetBluetooth = () => {
+    clearBluetoothDeviceInfo();
+    setIsBluetoothSetup(false);
+    setBluetoothDeviceName(null);
+    setSuccess(null);
+    setError(null);
+  };
+
+  // Test Print
   const handleTestPrint = async () => {
     setIsTesting(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // Import dynamically to avoid circular deps
-      const { printReceiptDirect } = await import('@/lib/thermal-printer');
-      
-      await printReceiptDirect({
-        type: 'checkout',
+      const testData = {
+        type: 'checkout' as const,
         receiptNumber: 'TEST-0001',
         timestamp: new Date().toISOString(),
         items: [
@@ -140,7 +210,13 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
           { name: 'Test Item 2', quantity: 2, subtotal: 20000 },
         ],
         total: 30000,
-      });
+      };
+
+      if (mode === 'serial') {
+        await printReceiptDirect(testData);
+      } else if (mode === 'bluetooth') {
+        await printReceiptBluetooth(testData);
+      }
       
       setSuccess('Test cetak berhasil!');
     } catch (err) {
@@ -151,8 +227,18 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
     }
   };
 
+  const isCurrentModeSetup = mode === 'serial' ? isSerialSetup : mode === 'bluetooth' ? isBluetoothSetup : true;
+
   return (
     <div className="space-y-4">
+      {/* Mobile Detection Info */}
+      {isMobile && (
+        <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+          <Smartphone className="h-4 w-4" />
+          <span>Mode mobile terdeteksi. Gunakan Bluetooth untuk cetak.</span>
+        </div>
+      )}
+
       {/* Mode Selection */}
       <div className="space-y-2">
         <Label>Mode Printer</Label>
@@ -168,7 +254,7 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
           >
             <Usb className="h-5 w-5" />
             <span className="text-xs font-medium">COM Port</span>
-            {mode === 'serial' && isSetupComplete && (
+            {mode === 'serial' && isSerialSetup && (
               <Check className="h-3 w-3 text-green-500" />
             )}
           </button>
@@ -184,6 +270,9 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
           >
             <Bluetooth className="h-5 w-5" />
             <span className="text-xs font-medium">Bluetooth</span>
+            {mode === 'bluetooth' && isBluetoothSetup && (
+              <Check className="h-3 w-3 text-green-500" />
+            )}
           </button>
           
           <button
@@ -205,22 +294,22 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
         <div className="space-y-3 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Usb className={`h-4 w-4 ${isSetupComplete ? 'text-green-500' : 'text-gray-400'}`} />
-              <span className={`text-sm font-medium ${isSetupComplete ? 'text-green-600' : 'text-gray-600'}`}>
-                {isSetupComplete ? 'COM Port Tersimpan ✓' : 'Belum disetup'}
+              <Usb className={`h-4 w-4 ${isSerialSetup ? 'text-green-500' : 'text-gray-400'}`} />
+              <span className={`text-sm font-medium ${isSerialSetup ? 'text-green-600' : 'text-gray-600'}`}>
+                {isSerialSetup ? 'COM Port Tersimpan ✓' : 'Belum disetup'}
               </span>
             </div>
-            {isSetupComplete && (
-              <Button variant="ghost" size="sm" onClick={handleResetPrinter} className="text-red-500 h-7 px-2">
+            {isSerialSetup && (
+              <Button variant="ghost" size="sm" onClick={handleResetSerial} className="text-red-500 h-7 px-2">
                 <Trash2 className="h-3 w-3 mr-1" />
                 Reset
               </Button>
             )}
           </div>
 
-          {!isSetupComplete ? (
+          {!isSerialSetup ? (
             <Button 
-              onClick={handleSetupPrinter} 
+              onClick={handleSetupSerial} 
               disabled={isConnecting}
               className="w-full"
             >
@@ -246,22 +335,67 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
           )}
 
           <p className="text-xs text-muted-foreground">
-            {isSetupComplete 
+            {isSerialSetup 
               ? 'Printer akan langsung cetak tanpa dialog pemilihan.'
               : 'Klik Setup untuk memilih COM Port printer (dialog muncul sekali).'}
           </p>
         </div>
       )}
 
-      {/* Bluetooth Info */}
+      {/* Bluetooth Setup */}
       {mode === 'bluetooth' && bluetoothSupported && (
-        <div className="rounded-lg border p-4">
-          <div className="flex items-center gap-2 text-amber-600">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-sm">Dialog pemilihan muncul setiap kali cetak</span>
+        <div className="space-y-3 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bluetooth className={`h-4 w-4 ${isBluetoothSetup ? 'text-green-500' : 'text-gray-400'}`} />
+              <div>
+                <span className={`text-sm font-medium ${isBluetoothSetup ? 'text-green-600' : 'text-gray-600'}`}>
+                  {isBluetoothSetup ? 'Bluetooth Tersimpan ✓' : 'Belum disetup'}
+                </span>
+                {bluetoothDeviceName && (
+                  <p className="text-xs text-muted-foreground">{bluetoothDeviceName}</p>
+                )}
+              </div>
+            </div>
+            {isBluetoothSetup && (
+              <Button variant="ghost" size="sm" onClick={handleResetBluetooth} className="text-red-500 h-7 px-2">
+                <Trash2 className="h-3 w-3 mr-1" />
+                Reset
+              </Button>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Mode Bluetooth akan menampilkan dialog pilih perangkat setiap kali mencetak karena keterbatasan Web Bluetooth API.
+
+          {!isBluetoothSetup ? (
+            <Button
+              onClick={handleSetupBluetooth}
+              disabled={isConnecting}
+              className="w-full"
+            >
+              {isConnecting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Menghubungkan...</>
+              ) : (
+                <><Bluetooth className="mr-2 h-4 w-4" /> Setup Bluetooth</>
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleTestPrint}
+              disabled={isTesting}
+              variant="outline"
+              className="w-full"
+            >
+              {isTesting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mencetak...</>
+              ) : (
+                <><Printer className="mr-2 h-4 w-4" /> Test Cetak</>
+              )}
+            </Button>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            {isBluetoothSetup
+              ? 'Printer akan auto-reconnect saat mencetak.'
+              : 'Klik Setup untuk memilih printer Bluetooth (dialog muncul sekali).'}
           </p>
         </div>
       )}
@@ -292,6 +426,17 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
         <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-3 rounded-lg">
           <Check className="h-4 w-4 flex-shrink-0" />
           <span>{success}</span>
+        </div>
+      )}
+
+      {/* Status Summary */}
+      {isCurrentModeSetup && mode !== 'browser' && (
+        <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+          <p className="text-sm text-green-700 font-medium">✓ Siap Cetak Langsung</p>
+          <p className="text-xs text-green-600">
+            {mode === 'serial' ? 'COM Port' : 'Bluetooth'} sudah disetup.
+            Semua nota akan langsung dicetak tanpa dialog pemilihan printer.
+          </p>
         </div>
       )}
 

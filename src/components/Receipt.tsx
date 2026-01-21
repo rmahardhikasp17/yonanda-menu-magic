@@ -3,7 +3,9 @@
  * 
  * Professional receipt layout for thermal printers
  * - Uses printer settings from Admin/Owner Menu
- * - Direct print without mode selection (uses saved config)
+ * - Serial (COM Port) for Desktop
+ * - Bluetooth for Mobile (Android)
+ * - Browser print as fallback
  */
 
 import { useState } from 'react';
@@ -13,10 +15,13 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Printer, X, Loader2, AlertCircle } from 'lucide-react';
-import {
+import { 
   ReceiptPrintData,
   printReceiptDirect,
+  printReceiptBluetooth,
   isSerialSupported,
+  isBluetoothSupported,
+  isBluetoothPrinterSetup,
 } from '@/lib/thermal-printer';
 import { getPrinterMode, isPrinterSetupComplete } from '@/components/PrinterSettings';
 
@@ -72,7 +77,11 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
   // Get printer settings from Admin config
   const printerMode = getPrinterMode();
   const isSetupComplete = isPrinterSetupComplete();
-  const canDirectPrint = printerMode === 'serial' && isSerialSupported() && isSetupComplete;
+
+  // Check if we can do direct print
+  const canDirectPrintSerial = printerMode === 'serial' && isSerialSupported() && isSetupComplete;
+  const canDirectPrintBluetooth = printerMode === 'bluetooth' && isBluetoothSupported() && isBluetoothPrinterSetup();
+  const canDirectPrint = canDirectPrintSerial || canDirectPrintBluetooth;
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'dd/MM/yyyy', { locale: id });
@@ -87,11 +96,16 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
     setError(null);
 
     if (canDirectPrint) {
-      // Serial/COM Port - direct print
       setIsPrinting(true);
       try {
         const printData = convertToPrintData(data);
-        await printReceiptDirect(printData);
+
+        if (canDirectPrintSerial) {
+          await printReceiptDirect(printData);
+        } else if (canDirectPrintBluetooth) {
+          await printReceiptBluetooth(printData);
+        }
+
         onPrint();
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Gagal mencetak';
@@ -104,6 +118,13 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
       onPrint();
       window.print();
     }
+  };
+
+  // Get mode indicator text
+  const getModeText = () => {
+    if (canDirectPrintSerial) return '✓ Cetak langsung ke COM Port';
+    if (canDirectPrintBluetooth) return '✓ Cetak langsung via Bluetooth';
+    return 'Menggunakan dialog print browser';
   };
 
   return (
@@ -256,7 +277,7 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
 
           <Button 
             onClick={handlePrint}
-            className="w-full"
+            className="w-full" 
             size="lg"
             disabled={isPrinting}
           >
@@ -275,9 +296,7 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
 
           {/* Mode indicator */}
           <p className="text-[10px] text-center text-muted-foreground">
-            {canDirectPrint
-              ? '✓ Cetak langsung ke COM Port'
-              : 'Menggunakan dialog print browser'}
+            {getModeText()}
           </p>
         </div>
       </div>

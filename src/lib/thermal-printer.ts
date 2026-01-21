@@ -98,7 +98,8 @@ export interface ReceiptPrintData {
 
 const STORAGE_KEYS = {
   SERIAL_PORT_INFO: 'thermal_printer_serial_port',
-  BLUETOOTH_DEVICE: 'thermal_printer_bluetooth_device',
+  BLUETOOTH_DEVICE_ID: 'thermal_printer_bluetooth_id',
+  BLUETOOTH_DEVICE_NAME: 'thermal_printer_bluetooth_name',
   PREFERRED_MODE: 'thermal_printer_mode',
 } as const;
 
@@ -542,7 +543,7 @@ function formatTime(dateString: string): string {
 }
 
 // ============================================
-// Legacy Bluetooth Functions (Fallback)
+// Bluetooth Functions with Auto-Reconnect
 // ============================================
 
 export interface ThermalPrinterDevice {
@@ -556,51 +557,125 @@ const ALT_SERVICE_UUIDS = [
   '49535343-fe7d-4ae5-8fa9-9fafd205e455',
 ];
 
+// Global Bluetooth printer reference for persistence
+let activeBluetoothPrinter: ThermalPrinterDevice | null = null;
+
 export function isBluetoothSupported(): boolean {
   return 'bluetooth' in navigator;
 }
 
-export async function connectPrinter(): Promise<ThermalPrinterDevice> {
-  if (!navigator.bluetooth) {
-    throw new Error('Web Bluetooth API tidak didukung di browser ini. Gunakan Chrome/Edge.');
+/**
+ * Save Bluetooth device info to localStorage
+ */
+function saveBluetoothDeviceInfo(device: BluetoothDevice): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.BLUETOOTH_DEVICE_ID, device.id);
+    localStorage.setItem(STORAGE_KEYS.BLUETOOTH_DEVICE_NAME, device.name || 'Bluetooth Printer');
+  } catch (e) {
+    console.warn('Could not save Bluetooth device info:', e);
+  }
+}
+
+/**
+ * Load saved Bluetooth device info
+ */
+export function loadBluetoothDeviceInfo(): { id: string; name: string } | null {
+  try {
+    const id = localStorage.getItem(STORAGE_KEYS.BLUETOOTH_DEVICE_ID);
+    const name = localStorage.getItem(STORAGE_KEYS.BLUETOOTH_DEVICE_NAME);
+    if (id) {
+      return { id, name: name || 'Bluetooth Printer' };
+    }
+  } catch (e) {
+    console.warn('Could not load Bluetooth device info:', e);
+  }
+  return null;
+}
+
+/**
+ * Clear saved Bluetooth device info
+ */
+export function clearBluetoothDeviceInfo(): void {
+  localStorage.removeItem(STORAGE_KEYS.BLUETOOTH_DEVICE_ID);
+  localStorage.removeItem(STORAGE_KEYS.BLUETOOTH_DEVICE_NAME);
+  activeBluetoothPrinter = null;
+}
+
+/**
+ * Check if Bluetooth printer is setup
+ */
+export function isBluetoothPrinterSetup(): boolean {
+  return loadBluetoothDeviceInfo() !== null;
+}
+
+/**
+ * Get saved Bluetooth device name
+ */
+export function getSavedBluetoothDeviceName(): string | null {
+  const info = loadBluetoothDeviceInfo();
+  return info?.name || null;
+}
+
+/**
+ * Connect to a Bluetooth device and find writable characteristic
+ */
+async function connectToBluetoothDevice(device: BluetoothDevice): Promise<ThermalPrinterDevice> {
+  if (!device.gatt) {
+    throw new Error('GATT tidak tersedia pada perangkat ini');
+  }
+
+  const server = await device.gatt.connect();
+  let characteristic: BluetoothRemoteGATTCharacteristic | null = null;
+
+  for (const serviceUuid of ALT_SERVICE_UUIDS) {
+    try {
+      const service = await server.getPrimaryService(serviceUuid);
+      const chars = await service.getCharacteristics();
+
+      for (const char of chars) {
+        if (char.properties.write || char.properties.writeWithoutResponse) {
+          characteristic = char;
+          break;
+        }
+      }
+
+      if (characteristic) break;
+    } catch {
+      continue;
+    }
+  }
+
+  if (!characteristic) {
+    throw new Error('Tidak dapat menemukan karakteristik printer.');
+  }
+
+  return { device, characteristic };
+}
+
+/**
+ * Setup Bluetooth printer (shows dialog ONCE)
+ * After this, auto-reconnect will work without dialog
+ */
+export async function setupBluetoothPrinter(): Promise<ThermalPrinterDevice> {
+  if (!isBluetoothSupported()) {
+    throw new Error('Web Bluetooth tidak didukung. Gunakan Chrome Android.');
   }
 
   try {
+    // Request device with dialog
     const device = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
       optionalServices: ALT_SERVICE_UUIDS,
     });
 
-    if (!device.gatt) {
-      throw new Error('GATT tidak tersedia pada perangkat ini');
-    }
+    // Connect and find characteristic
+    const printer = await connectToBluetoothDevice(device);
 
-    const server = await device.gatt.connect();
-    let characteristic: BluetoothRemoteGATTCharacteristic | null = null;
+    // Save for auto-reconnect
+    saveBluetoothDeviceInfo(device);
+    activeBluetoothPrinter = printer;
 
-    for (const serviceUuid of ALT_SERVICE_UUIDS) {
-      try {
-        const service = await server.getPrimaryService(serviceUuid);
-        const chars = await service.getCharacteristics();
-
-        for (const char of chars) {
-          if (char.properties.write || char.properties.writeWithoutResponse) {
-            characteristic = char;
-            break;
-          }
-        }
-
-        if (characteristic) break;
-      } catch {
-        continue;
-      }
-    }
-
-    if (!characteristic) {
-      throw new Error('Tidak dapat menemukan karakteristik printer.');
-    }
-
-    return { device, characteristic };
+    return printer;
   } catch (error) {
     if (error instanceof Error) {
       if (error.message.includes('User cancelled')) {
@@ -608,8 +683,88 @@ export async function connectPrinter(): Promise<ThermalPrinterDevice> {
       }
       throw error;
     }
-    throw new Error('Gagal terhubung ke printer');
+    throw new Error('Gagal setup printer Bluetooth');
   }
+}
+
+/**
+ * Auto-reconnect to saved Bluetooth printer (NO DIALOG on Android Chrome)
+ * Note: getDevices() returns previously paired devices
+ */
+export async function autoConnectBluetoothPrinter(): Promise<ThermalPrinterDevice | null> {
+  if (!isBluetoothSupported()) {
+    return null;
+  }
+
+  // Return cached connection if still valid
+  if (activeBluetoothPrinter && activeBluetoothPrinter.device.gatt?.connected) {
+    return activeBluetoothPrinter;
+  }
+
+  const savedInfo = loadBluetoothDeviceInfo();
+  if (!savedInfo) {
+    return null;
+  }
+
+  try {
+    // getDevices() returns previously granted devices WITHOUT showing dialog
+    // This is supported on Chrome Android 85+
+    if ('getDevices' in navigator.bluetooth) {
+      const devices = await (navigator.bluetooth as any).getDevices();
+
+      // Find matching device by ID
+      const device = devices.find((d: BluetoothDevice) => d.id === savedInfo.id);
+
+      if (device) {
+        // Watch for advertisements to auto-connect
+        if ('watchAdvertisements' in device) {
+          try {
+            await (device as any).watchAdvertisements();
+          } catch {
+            // watchAdvertisements may not be supported, continue anyway
+          }
+        }
+
+        const printer = await connectToBluetoothDevice(device);
+        activeBluetoothPrinter = printer;
+        return printer;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('Bluetooth auto-connect failed:', error);
+    return null;
+  }
+}
+
+/**
+ * Print receipt directly via Bluetooth
+ * Uses auto-reconnect if possible, falls back to cached connection
+ */
+export async function printReceiptBluetooth(data: ReceiptPrintData): Promise<void> {
+  // Try to get connected printer
+  let printer = activeBluetoothPrinter;
+
+  // Check if still connected
+  if (!printer || !printer.device.gatt?.connected) {
+    // Try auto-reconnect
+    printer = await autoConnectBluetoothPrinter();
+  }
+
+  if (!printer) {
+    throw new Error('Printer Bluetooth belum disetup. Buka Pengaturan Printer di menu Admin.');
+  }
+
+  // Print the receipt
+  await printReceipt(printer, data);
+}
+
+/**
+ * Legacy connect function (shows dialog every time)
+ */
+export async function connectPrinter(): Promise<ThermalPrinterDevice> {
+  return setupBluetoothPrinter();
 }
 
 export function disconnectPrinter(printer: ThermalPrinterDevice): void {
