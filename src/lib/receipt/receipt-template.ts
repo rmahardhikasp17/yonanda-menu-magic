@@ -131,7 +131,7 @@ export function buildReceiptTemplate(data: ReceiptData): ReceiptBlock[] {
     type: 'footer',
     visible: true,
     data: {
-      text: 'Developed System by Nekat Digital',
+      text: 'System by Nekat Digital',
     } as FooterBlockData,
   });
 

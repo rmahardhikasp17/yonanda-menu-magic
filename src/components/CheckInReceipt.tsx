@@ -265,7 +265,7 @@ export function CheckInReceipt({
           {/* Footer dengan border = */}
           <div className="receipt-footer text-center text-[9px] text-gray-600">
             <div>=================================</div>
-            <div>Developed System by Nekat Digital</div>
+            <div>System by Nekat Digital</div>
             <div>=================================</div>
           </div>
 

@@ -472,7 +472,7 @@ async function printReceiptToSerial(port: SerialPort, data: ReceiptPrintData): P
 
     // 11. Footer dengan border =
     await printLineSerial(port, EQUALS_LINE);
-    await printLineSerial(port, 'Developed System by Nekat Digital');
+    await printLineSerial(port, 'System by Nekat Digital');
     await printLineSerial(port, EQUALS_LINE);
 
     // 12. Feed paper (just line feeds, NO form feed)
@@ -906,7 +906,7 @@ export async function printReceipt(
 
     // Footer dengan border =
     await printLine(char, EQUALS_LINE);
-    await printLine(char, 'Developed System by Nekat Digital');
+    await printLine(char, 'System by Nekat Digital');
     await printLine(char, EQUALS_LINE);
 
     // Feed paper

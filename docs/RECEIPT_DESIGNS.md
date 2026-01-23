@@ -44,7 +44,7 @@ Bayar   : {{PAYMENT_METHOD}}
 {{NOTES}}
 --------------------------------
 ================================
-Developed System by Nekat Digital
+System by Nekat Digital
 ================================
 ```
 
