@@ -156,13 +156,13 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
         {/* ===== PRINT AREA START ===== */}
         <div className="print-area p-4 font-mono text-xs bg-white flex-1 overflow-y-auto">
 
-          {/* Header */}
+          {/* Header dengan border = */}
           <div className="receipt-header text-center">
+            <div className="text-xs font-mono">=================================</div>
             <div className="text-sm font-bold">HOTEL YONANDA</div>
-            <div className="text-[9px]">Jl. Mayor Soeyoto Km 6 Jimbaran-Bandungan</div>
+            <div className="text-[9px]">Jl. Mayor Soeyoto Km 6</div>
+            <div className="text-[9px]">Jimbaran-Bandungan</div>
             <div className="text-[9px]">081392506299</div>
-            <div className="text-[10px]">Terima Kasih Atas</div>
-            <div className="text-[10px]">Kunjungan Anda</div>
           </div>
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
@@ -187,7 +187,7 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
 
           {/* Receipt Number */}
           <div className="receipt-number text-center font-bold text-sm">
-            No: {data.receiptNumber || '-'}
+            No Nota : {data.receiptNumber || '-'}
           </div>
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
@@ -200,16 +200,12 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
                   <span>No. Kamar</span>
                   <span>{data.roomNumber}</span>
                 </div>
-                {data.guestName && (
+                {data.roomType && (
                   <div className="receipt-row flex justify-between">
-                    <span>Tamu</span>
-                    <span className="text-right max-w-[100px] truncate">{data.guestName}</span>
+                    <span>Tipe</span>
+                    <span>{data.roomType}</span>
                   </div>
                 )}
-                <div className="receipt-row flex justify-between">
-                  <span>Tipe</span>
-                  <span>{data.roomType}</span>
-                </div>
                 {data.nights !== undefined && (
                   <div className="receipt-row flex justify-between">
                     <span>Durasi</span>
@@ -231,8 +227,19 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
           {data.type === 'canteen-guest' && data.roomNumber && (
             <>
               <div className="receipt-row flex justify-between">
-                <span>Kamar</span>
+                <span>No. Kamar</span>
                 <span>{data.roomNumber}</span>
+              </div>
+              <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+            </>
+          )}
+
+          {/* Guest Info */}
+          {data.guestName && (
+            <>
+              <div className="receipt-row flex justify-between">
+                <span>Nama</span>
+                <span className="text-right max-w-[100px] truncate">{data.guestName}</span>
               </div>
               <hr className="receipt-divider my-2 border-dashed border-gray-400" />
             </>
@@ -263,20 +270,29 @@ export function Receipt({ data, onClose, onPrint }: ReceiptProps) {
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
+          {/* Payment Method */}
+          {data.paymentMethod && (
+            <>
+              <div className="receipt-row flex justify-between">
+                <span>Bayar</span>
+                <span>{data.paymentMethod === 'cash' ? 'CASH' : 'QRIS'}</span>
+              </div>
+              <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+            </>
+          )}
+
           {/* Warning */}
-          <div className="receipt-warning border border-dashed border-gray-400 p-1 text-center text-[10px]">
-            <div>⚠️ PENTING ⚠️</div>
-            <div>Max Check-out 12.00 WIB</div>
+          <div className="receipt-warning text-center text-[10px]">
+            <div>** Max Check-out 12.00 WIB **</div>
           </div>
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
-          {/* Footer */}
+          {/* Footer dengan border = */}
           <div className="receipt-footer text-center text-[9px] text-gray-600">
-            <div>================================</div>
-            <div>Developed System by</div>
-            <div>Nekat Digital</div>
-            <div>================================</div>
+            <div>=================================</div>
+            <div>Developed System by Nekat Digital</div>
+            <div>=================================</div>
           </div>
 
         </div>

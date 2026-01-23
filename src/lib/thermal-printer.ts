@@ -368,52 +368,44 @@ export async function printReceiptDirect(data: ReceiptPrintData): Promise<void> 
 
 /**
  * Print receipt to serial port
+ * Template sesuai RECEIPT_DESIGNS.md
  */
 async function printReceiptToSerial(port: SerialPort, data: ReceiptPrintData): Promise<void> {
   const LINE_WIDTH = 32;
-  const DIVIDER = ''.padStart(LINE_WIDTH, '-');
+  const EQUALS_LINE = ''.padStart(LINE_WIDTH, '=');
+  const DASH_LINE = ''.padStart(LINE_WIDTH, '-');
 
   try {
-    // 1. Initialize printer (ESC @) - CRITICAL: No margin, no top feed
+    // 1. Initialize printer (ESC @)
     await sendCommandToSerial(port, ESC_POS.INIT);
 
-    // 2. Print Header (centered, double width)
+    // 2. Header dengan border =
     await sendCommandToSerial(port, ESC_POS.ALIGN_CENTER);
-    await sendCommandToSerial(port, ESC_POS.FONT_DOUBLE_WIDTH);
+    await printLineSerial(port, EQUALS_LINE);
+    await sendCommandToSerial(port, ESC_POS.FONT_BOLD);
     await printLineSerial(port, 'HOTEL YONANDA');
+    await sendCommandToSerial(port, ESC_POS.FONT_NORMAL);
     await printLineSerial(port, 'Jl. Mayor Soeyoto Km 6');
     await printLineSerial(port, 'Jimbaran-Bandungan');
     await printLineSerial(port, '081392506299');
-
-    await sendCommandToSerial(port, ESC_POS.FONT_NORMAL);
-    await printLineSerial(port, 'Terima Kasih Atas');
-    await printLineSerial(port, 'Kunjungan Anda');
-
-    await printLineSerial(port, DIVIDER);
+    await printLineSerial(port, DASH_LINE);
 
     // 3. Transaction Info (left align)
     await sendCommandToSerial(port, ESC_POS.ALIGN_LEFT);
     await printLineSerial(port, formatRow('Tanggal', formatDate(data.timestamp), LINE_WIDTH));
     await printLineSerial(port, formatRow('Jam', formatTime(data.timestamp), LINE_WIDTH));
     await printLineSerial(port, formatRow('Jenis', getReceiptTypeLabel(data.type), LINE_WIDTH));
-
-    await printLineSerial(port, DIVIDER);
+    await printLineSerial(port, DASH_LINE);
 
     // 4. Receipt Number (centered, bold)
     await sendCommandToSerial(port, ESC_POS.ALIGN_CENTER);
     await sendCommandToSerial(port, ESC_POS.FONT_BOLD);
-    await printLineSerial(port, `No: ${data.receiptNumber}`);
+    await printLineSerial(port, `No Nota : ${data.receiptNumber}`);
     await sendCommandToSerial(port, ESC_POS.FONT_NORMAL);
-
-    await printLineSerial(port, DIVIDER);
+    await printLineSerial(port, DASH_LINE);
 
     // 5. Room Info (if applicable)
     if (data.roomNumber) {
-      await sendCommandToSerial(port, ESC_POS.ALIGN_CENTER);
-      await sendCommandToSerial(port, ESC_POS.FONT_BOLD);
-      await printLineSerial(port, 'DATA KAMAR');
-      await sendCommandToSerial(port, ESC_POS.FONT_NORMAL);
-
       await sendCommandToSerial(port, ESC_POS.ALIGN_LEFT);
       await printLineSerial(port, formatRow('No. Kamar', data.roomNumber, LINE_WIDTH));
 
@@ -429,16 +421,11 @@ async function printReceiptToSerial(port: SerialPort, data: ReceiptPrintData): P
         await printLineSerial(port, formatRow('Durasi', `${data.nights} malam`, LINE_WIDTH));
       }
 
-      await printLineSerial(port, DIVIDER);
+      await printLineSerial(port, DASH_LINE);
     }
 
     // 6. Guest Info (if applicable)
     if (data.guestName || data.maskedKtp) {
-      await sendCommandToSerial(port, ESC_POS.ALIGN_CENTER);
-      await sendCommandToSerial(port, ESC_POS.FONT_BOLD);
-      await printLineSerial(port, 'DATA TAMU');
-      await sendCommandToSerial(port, ESC_POS.FONT_NORMAL);
-
       await sendCommandToSerial(port, ESC_POS.ALIGN_LEFT);
 
       if (data.guestName) {
@@ -449,7 +436,7 @@ async function printReceiptToSerial(port: SerialPort, data: ReceiptPrintData): P
         await printLineSerial(port, formatRow('No. KTP', data.maskedKtp, LINE_WIDTH));
       }
 
-      await printLineSerial(port, DIVIDER);
+      await printLineSerial(port, DASH_LINE);
     }
 
     // 7. Order Items (if any)
@@ -462,41 +449,37 @@ async function printReceiptToSerial(port: SerialPort, data: ReceiptPrintData): P
         await printLineSerial(port, formatRow(itemName.substring(0, 20), itemPrice, LINE_WIDTH));
       }
 
-      await printLineSerial(port, DIVIDER);
+      await printLineSerial(port, DASH_LINE);
     }
 
     // 8. Total (bold)
+    await sendCommandToSerial(port, ESC_POS.ALIGN_LEFT);
     await sendCommandToSerial(port, ESC_POS.FONT_BOLD);
     await printLineSerial(port, formatRow('TOTAL', formatCurrency(data.total), LINE_WIDTH));
     await sendCommandToSerial(port, ESC_POS.FONT_NORMAL);
+    await printLineSerial(port, DASH_LINE);
 
     // 9. Payment Method (if applicable)
     if (data.paymentMethod) {
       await printLineSerial(port, formatRow('Bayar', data.paymentMethod === 'cash' ? 'CASH' : 'QRIS', LINE_WIDTH));
+      await printLineSerial(port, DASH_LINE);
     }
 
-    await printLineSerial(port, DIVIDER);
-
-    // 10. Warning (centered)
+    // 10. Warning/Notes (centered)
     await sendCommandToSerial(port, ESC_POS.ALIGN_CENTER);
-    await printLineSerial(port, '** PENTING **');
-    await printLineSerial(port, 'Max Check-out 12.00 WIB');
+    await printLineSerial(port, '** Max Check-out 12.00 WIB **');
+    await printLineSerial(port, DASH_LINE);
 
-    await printLineSerial(port, DIVIDER);
-
-    // 11. Footer
-    await printLineSerial(port, '================================');
-    await printLineSerial(port, 'Developed System by');
-    await printLineSerial(port, 'Nekat Digital');
-    await printLineSerial(port, '================================');
+    // 11. Footer dengan border =
+    await printLineSerial(port, EQUALS_LINE);
+    await printLineSerial(port, 'Developed System by Nekat Digital');
+    await printLineSerial(port, EQUALS_LINE);
 
     // 12. Feed paper (just line feeds, NO form feed)
     await sendCommandToSerial(port, ESC_POS.LF);
     await sendCommandToSerial(port, ESC_POS.LF);
     await sendCommandToSerial(port, ESC_POS.LF);
     await sendCommandToSerial(port, ESC_POS.LF);
-
-    // DO NOT send form feed (0x0C) - this causes blank paper!
 
   } catch (error) {
     console.error('Print error:', error);
@@ -824,44 +807,39 @@ export async function printReceipt(
 ): Promise<void> {
   const char = printer.characteristic;
   const LINE_WIDTH = 32;
-  const DIVIDER = ''.padStart(LINE_WIDTH, '-');
+  const EQUALS_LINE = ''.padStart(LINE_WIDTH, '=');
+  const DASH_LINE = ''.padStart(LINE_WIDTH, '-');
 
   try {
     await sendCommand(char, ESC_POS.INIT);
 
+    // Header dengan border =
     await sendCommand(char, ESC_POS.ALIGN_CENTER);
-    await sendCommand(char, ESC_POS.FONT_DOUBLE_WIDTH);
+    await printLine(char, EQUALS_LINE);
+    await sendCommand(char, ESC_POS.FONT_BOLD);
     await printLine(char, 'HOTEL YONANDA');
+    await sendCommand(char, ESC_POS.FONT_NORMAL);
     await printLine(char, 'Jl. Mayor Soeyoto Km 6');
     await printLine(char, 'Jimbaran-Bandungan');
     await printLine(char, '081392506299');
+    await printLine(char, DASH_LINE);
 
-    await sendCommand(char, ESC_POS.FONT_NORMAL);
-    await printLine(char, 'Terima Kasih Atas');
-    await printLine(char, 'Kunjungan Anda');
-
-    await printLine(char, DIVIDER);
-
+    // Transaction Info
     await sendCommand(char, ESC_POS.ALIGN_LEFT);
     await printLine(char, formatRow('Tanggal', formatDate(data.timestamp), LINE_WIDTH));
     await printLine(char, formatRow('Jam', formatTime(data.timestamp), LINE_WIDTH));
     await printLine(char, formatRow('Jenis', getReceiptTypeLabel(data.type), LINE_WIDTH));
+    await printLine(char, DASH_LINE);
 
-    await printLine(char, DIVIDER);
-
+    // Receipt Number
     await sendCommand(char, ESC_POS.ALIGN_CENTER);
     await sendCommand(char, ESC_POS.FONT_BOLD);
-    await printLine(char, `No: ${data.receiptNumber}`);
+    await printLine(char, `No Nota : ${data.receiptNumber}`);
     await sendCommand(char, ESC_POS.FONT_NORMAL);
+    await printLine(char, DASH_LINE);
 
-    await printLine(char, DIVIDER);
-
+    // Room Info
     if (data.roomNumber) {
-      await sendCommand(char, ESC_POS.ALIGN_CENTER);
-      await sendCommand(char, ESC_POS.FONT_BOLD);
-      await printLine(char, 'DATA KAMAR');
-      await sendCommand(char, ESC_POS.FONT_NORMAL);
-
       await sendCommand(char, ESC_POS.ALIGN_LEFT);
       await printLine(char, formatRow('No. Kamar', data.roomNumber, LINE_WIDTH));
 
@@ -877,15 +855,11 @@ export async function printReceipt(
         await printLine(char, formatRow('Durasi', `${data.nights} malam`, LINE_WIDTH));
       }
 
-      await printLine(char, DIVIDER);
+      await printLine(char, DASH_LINE);
     }
 
+    // Guest Info
     if (data.guestName || data.maskedKtp) {
-      await sendCommand(char, ESC_POS.ALIGN_CENTER);
-      await sendCommand(char, ESC_POS.FONT_BOLD);
-      await printLine(char, 'DATA TAMU');
-      await sendCommand(char, ESC_POS.FONT_NORMAL);
-
       await sendCommand(char, ESC_POS.ALIGN_LEFT);
 
       if (data.guestName) {
@@ -896,9 +870,10 @@ export async function printReceipt(
         await printLine(char, formatRow('No. KTP', data.maskedKtp, LINE_WIDTH));
       }
 
-      await printLine(char, DIVIDER);
+      await printLine(char, DASH_LINE);
     }
 
+    // Order Items
     if (data.items.length > 0) {
       await sendCommand(char, ESC_POS.ALIGN_LEFT);
 
@@ -908,30 +883,33 @@ export async function printReceipt(
         await printLine(char, formatRow(itemName.substring(0, 20), itemPrice, LINE_WIDTH));
       }
 
-      await printLine(char, DIVIDER);
+      await printLine(char, DASH_LINE);
     }
 
+    // Total
+    await sendCommand(char, ESC_POS.ALIGN_LEFT);
     await sendCommand(char, ESC_POS.FONT_BOLD);
     await printLine(char, formatRow('TOTAL', formatCurrency(data.total), LINE_WIDTH));
     await sendCommand(char, ESC_POS.FONT_NORMAL);
+    await printLine(char, DASH_LINE);
 
+    // Payment Method
     if (data.paymentMethod) {
       await printLine(char, formatRow('Bayar', data.paymentMethod === 'cash' ? 'CASH' : 'QRIS', LINE_WIDTH));
+      await printLine(char, DASH_LINE);
     }
 
-    await printLine(char, DIVIDER);
-
+    // Warning/Notes
     await sendCommand(char, ESC_POS.ALIGN_CENTER);
-    await printLine(char, '** PENTING **');
-    await printLine(char, 'Max Check-out 12.00 WIB');
+    await printLine(char, '** Max Check-out 12.00 WIB **');
+    await printLine(char, DASH_LINE);
 
-    await printLine(char, DIVIDER);
+    // Footer dengan border =
+    await printLine(char, EQUALS_LINE);
+    await printLine(char, 'Developed System by Nekat Digital');
+    await printLine(char, EQUALS_LINE);
 
-    await printLine(char, '================================');
-    await printLine(char, 'Developed System by');
-    await printLine(char, 'Nekat Digital');
-    await printLine(char, '================================');
-
+    // Feed paper
     await sendCommand(char, ESC_POS.LF);
     await sendCommand(char, ESC_POS.LF);
     await sendCommand(char, ESC_POS.LF);

@@ -168,13 +168,13 @@ export function CheckInReceipt({
         {/* ===== PRINT AREA START ===== */}
         <div className="print-area p-4 font-mono text-xs bg-white flex-1 overflow-y-auto">
 
-          {/* Header */}
+          {/* Header dengan border = */}
           <div className="receipt-header text-center">
+            <div className="text-xs font-mono">=================================</div>
             <div className="text-sm font-bold">HOTEL YONANDA</div>
-            <div className="text-[9px]">Jl. Mayor Soeyoto Km 6 Jimbaran-Bandungan</div>
+            <div className="text-[9px]">Jl. Mayor Soeyoto Km 6</div>
+            <div className="text-[9px]">Jimbaran-Bandungan</div>
             <div className="text-[9px]">081392506299</div>
-            <div className="text-[10px]">Terima Kasih Atas</div>
-            <div className="text-[10px]">Kunjungan Anda</div>
           </div>
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
@@ -199,13 +199,12 @@ export function CheckInReceipt({
 
           {/* Receipt Number */}
           <div className="receipt-number text-center font-bold text-sm">
-            No: {displayNumber}
+            No Nota : {displayNumber}
           </div>
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
           {/* Room Info */}
-          <div className="text-center font-bold text-[11px] mb-1">DATA KAMAR</div>
           <div className="space-y-0.5">
             <div className="receipt-row flex justify-between">
               <span>No. Kamar</span>
@@ -224,7 +223,6 @@ export function CheckInReceipt({
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
           {/* Guest Info */}
-          <div className="text-center font-bold text-[11px] mb-1">DATA TAMU</div>
           <div className="space-y-0.5">
             <div className="receipt-row flex justify-between">
               <span>Nama</span>
@@ -238,10 +236,18 @@ export function CheckInReceipt({
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
+          {/* Total */}
+          <div className="receipt-total flex justify-between font-bold">
+            <span>TOTAL</span>
+            <span>{formatCurrency(room.rate)}</span>
+          </div>
+
+          <hr className="receipt-divider my-2 border-dashed border-gray-400" />
+
           {/* Payment Method - shown on print */}
           {paymentMethod && (
             <>
-              <div className="receipt-row flex justify-between font-bold">
+              <div className="receipt-row flex justify-between">
                 <span>Bayar</span>
                 <span>{paymentMethod === 'cash' ? 'CASH' : 'QRIS'}</span>
               </div>
@@ -250,19 +256,17 @@ export function CheckInReceipt({
           )}
 
           {/* Warning */}
-          <div className="receipt-warning border border-dashed border-gray-400 p-1 text-center text-[10px]">
-            <div>⚠️ PENTING ⚠️</div>
-            <div>Max Check-out 12.00 WIB</div>
+          <div className="receipt-warning text-center text-[10px]">
+            <div>** Max Check-out 12.00 WIB **</div>
           </div>
 
           <hr className="receipt-divider my-2 border-dashed border-gray-400" />
 
-          {/* Footer */}
+          {/* Footer dengan border = */}
           <div className="receipt-footer text-center text-[9px] text-gray-600">
-            <div>================================</div>
-            <div>Developed System by</div>
-            <div>Nekat Digital</div>
-            <div>================================</div>
+            <div>=================================</div>
+            <div>Developed System by Nekat Digital</div>
+            <div>=================================</div>
           </div>
 
         </div>
