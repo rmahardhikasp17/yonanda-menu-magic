@@ -98,12 +98,15 @@ jobs:
       # 9. Decode keystore from secret
       # ──────────────────────────────────
       - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE }}
         run: |
-          if [ -z "${{ secrets.ANDROID_KEYSTORE }}" ]; then
+          if [ -z "$KEYSTORE_BASE64" ]; then
             echo "Error: ANDROID_KEYSTORE secret is empty or missing! Please add it to GitHub Secrets."
             exit 1
           fi
-          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -di > android/app/release-key.jks
+          echo "$KEYSTORE_BASE64" | base64 -di > android/app/release-key.jks
+          echo "Keystore decoded successfully ($(wc -c < android/app/release-key.jks) bytes)"
 
       # ──────────────────────────────────
       # 10. Build release APK
