@@ -1,5 +1,4 @@
-import { formatCurrency } from '@/data/roomData';
-import { cn } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 

@@ -7,10 +7,11 @@
  * - Browser print as fallback
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PaymentMethod } from '@/types/hotel';
 import { useReceiptCounter } from '@/hooks/useReceiptCounter';
-import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
+import { getRoomTypeInfo } from '@/data/roomData';
+import { formatCurrency } from '@/lib/utils';
 import { 
   ReceiptPrintData,
   printReceiptDirect,
@@ -75,8 +76,14 @@ export function CheckInReceipt({
   // Check-in always prints 2 copies (tamu & kasir)
   const printCopies = 2;
 
+  // Load preview number asynchronously
+  const [previewNumber, setPreviewNumber] = useState<string>('');
+  useEffect(() => {
+    previewNextNumber('checkin').then(setPreviewNumber);
+  }, [previewNextNumber]);
+
   // Show preview number, generate actual on confirm
-  const displayNumber = receiptNumber || previewNextNumber('checkin');
+  const displayNumber = receiptNumber || previewNumber || '...';
 
   // Build print data for ESC/POS
   const buildPrintData = (actualReceiptNumber: string, payment: PaymentMethod): ReceiptPrintData => ({
@@ -100,7 +107,7 @@ export function CheckInReceipt({
     setPrintSuccess(false);
 
     // Generate actual receipt number
-    const actualNumber = getNextReceiptNumber('checkin');
+    const actualNumber = await getNextReceiptNumber('checkin');
     setReceiptNumber(actualNumber);
 
     if (canDirectPrint) {

@@ -1,16 +1,21 @@
 /**
- * Receipt Counter Management
- * 
+ * Receipt Counter Management — IndexedDB Backend
+ *
  * @description Anti-fraud receipt numbering system.
  * - Sequential counters per receipt type
  * - Counters increment ONLY on successful print (confirm pattern)
- * - Counters persist in LocalStorage
+ * - Counters persist in IndexedDB (owner_config store)
  * - Missing numbers indicate potential fraud
+ *
+ * MIGRATION: Previously stored in LocalStorage under 'receipt_counters'.
+ * Now stored in IndexedDB owner_config store with key 'receipt_counters'.
  */
 
-import { ReceiptType, ReceiptCounter, ReceiptCounters, RECEIPT_PREFIXES } from '@/types/hotel';
+import { ReceiptType, ReceiptCounters, RECEIPT_PREFIXES } from '@/types/hotel';
+import { getDB, STORES } from '@/lib/db';
 
-const STORAGE_KEY = 'receipt_counters';
+const CONFIG_KEY = 'receipt_counters';
+const LS_LEGACY_KEY = 'receipt_counters'; // For migration
 
 // Default state for new installations (start from 0000)
 const DEFAULT_COUNTERS: ReceiptCounters = {
@@ -21,45 +26,76 @@ const DEFAULT_COUNTERS: ReceiptCounters = {
 };
 
 /**
- * Get all receipt counters from LocalStorage
+ * Get all receipt counters from IndexedDB
+ * On first call, migrates from LocalStorage if existing data is found.
  */
-export function getReceiptCounters(): ReceiptCounters {
+export async function getReceiptCounters(): Promise<ReceiptCounters> {
     try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (!stored) return { ...DEFAULT_COUNTERS };
+        const db = await getDB();
 
-        const parsed = JSON.parse(stored) as ReceiptCounters;
+        const stored = await new Promise<{ key: string; value: ReceiptCounters } | undefined>((resolve, reject) => {
+            const tx = db.transaction(STORES.OWNER_CONFIG, 'readonly');
+            const store = tx.objectStore(STORES.OWNER_CONFIG);
+            const request = store.get(CONFIG_KEY);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(new Error('Failed to read receipt counters'));
+        });
 
-        // Validate structure to prevent tampering
-        if (!parsed.checkin || !parsed.checkout ||
-            !parsed.kantin_tamu || !parsed.kantin_nontamu) {
-            console.warn('Invalid counter structure detected, using defaults');
-            return { ...DEFAULT_COUNTERS };
+        if (stored?.value) {
+            // Validate structure
+            const parsed = stored.value;
+            if (parsed.checkin && parsed.checkout && parsed.kantin_tamu && parsed.kantin_nontamu) {
+                return parsed;
+            }
         }
 
-        return parsed;
+        // Try to migrate from LocalStorage
+        const legacyData = localStorage.getItem(LS_LEGACY_KEY);
+        if (legacyData) {
+            try {
+                const parsed = JSON.parse(legacyData) as ReceiptCounters;
+                if (parsed.checkin && parsed.checkout && parsed.kantin_tamu && parsed.kantin_nontamu) {
+                    // Save to IndexedDB
+                    await saveReceiptCounters(parsed);
+                    // Remove from LocalStorage after successful migration
+                    localStorage.removeItem(LS_LEGACY_KEY);
+                    console.log('[ReceiptCounter] Migrated from LocalStorage → IndexedDB');
+                    return parsed;
+                }
+            } catch {
+                // Invalid legacy data, use defaults
+            }
+        }
+
+        // No data found, initialize with defaults
+        await saveReceiptCounters(DEFAULT_COUNTERS);
+        return { ...DEFAULT_COUNTERS };
     } catch (error) {
-        console.error('Failed to parse receipt counters:', error);
+        console.error('Failed to get receipt counters:', error);
         return { ...DEFAULT_COUNTERS };
     }
 }
 
 /**
- * Save receipt counters to LocalStorage
+ * Save receipt counters to IndexedDB
  */
-function saveReceiptCounters(counters: ReceiptCounters): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(counters));
+async function saveReceiptCounters(counters: ReceiptCounters): Promise<void> {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORES.OWNER_CONFIG, 'readwrite');
+        const store = tx.objectStore(STORES.OWNER_CONFIG);
+        const request = store.put({ key: CONFIG_KEY, value: counters });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(new Error('Failed to save receipt counters'));
+    });
 }
 
 /**
  * Reserve (preview) the next receipt number WITHOUT incrementing.
  * Use this for display on receipt preview before printing.
- * 
- * @param type - Receipt type to preview
- * @returns Formatted receipt number that WILL be assigned on confirm
  */
-export function reserveReceiptNumber(type: ReceiptType): string {
-    const counters = getReceiptCounters();
+export async function reserveReceiptNumber(type: ReceiptType): Promise<string> {
+    const counters = await getReceiptCounters();
     const nextNumber = counters[type].lastNumber + 1;
     const prefix = RECEIPT_PREFIXES[type];
     return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
@@ -69,19 +105,16 @@ export function reserveReceiptNumber(type: ReceiptType): string {
  * Confirm receipt number AFTER successful print.
  * This is the ONLY function that increments the counter.
  * Call this ONLY after the print dialog completes successfully.
- * 
- * @param type - Receipt type to confirm
- * @returns The confirmed receipt number
  */
-export function confirmReceiptNumber(type: ReceiptType): string {
-    const counters = getReceiptCounters();
+export async function confirmReceiptNumber(type: ReceiptType): Promise<string> {
+    const counters = await getReceiptCounters();
 
     // Increment counter
     counters[type].lastNumber += 1;
     counters[type].lastPrintedAt = new Date().toISOString();
 
     // Save after successful print
-    saveReceiptCounters(counters);
+    await saveReceiptCounters(counters);
 
     // Format with prefix and zero-padding
     const prefix = RECEIPT_PREFIXES[type];
@@ -94,7 +127,7 @@ export function confirmReceiptNumber(type: ReceiptType): string {
  * @deprecated Use reserveReceiptNumber + confirmReceiptNumber instead
  * Generate next receipt number (legacy - increments immediately)
  */
-export function generateReceiptNumber(type: ReceiptType): string {
+export async function generateReceiptNumber(type: ReceiptType): Promise<string> {
     return confirmReceiptNumber(type);
 }
 
@@ -102,8 +135,8 @@ export function generateReceiptNumber(type: ReceiptType): string {
  * Get current counter value without incrementing
  * For display/audit purposes only
  */
-export function getCurrentCounterValue(type: ReceiptType): number {
-    const counters = getReceiptCounters();
+export async function getCurrentCounterValue(type: ReceiptType): Promise<number> {
+    const counters = await getReceiptCounters();
     return counters[type].lastNumber;
 }
 
@@ -118,26 +151,22 @@ export function formatReceiptNumber(type: ReceiptType, number: number): string {
 /**
  * Get last printed timestamp for a counter
  */
-export function getLastPrintedAt(type: ReceiptType): string | null {
-    const counters = getReceiptCounters();
+export async function getLastPrintedAt(type: ReceiptType): Promise<string | null> {
+    const counters = await getReceiptCounters();
     return counters[type].lastPrintedAt || null;
 }
 
 /**
  * Reset a specific counter (ADMIN ONLY)
  * This should only be called from the Owner Admin Menu with PIN verification
- * 
- * @param type - Receipt type to reset
- * @param newValue - Optional new starting value (default: 0)
- * @returns Object with previous and new values for audit logging
  */
-export function resetCounter(type: ReceiptType, newValue: number = 0): { from: number; to: number } {
-    const counters = getReceiptCounters();
+export async function resetCounter(type: ReceiptType, newValue: number = 0): Promise<{ from: number; to: number }> {
+    const counters = await getReceiptCounters();
     const previousValue = counters[type].lastNumber;
 
     counters[type].lastNumber = newValue;
     counters[type].lastPrintedAt = ''; // Clear timestamp on reset
-    saveReceiptCounters(counters);
+    await saveReceiptCounters(counters);
 
     return { from: previousValue, to: newValue };
 }
@@ -146,22 +175,21 @@ export function resetCounter(type: ReceiptType, newValue: number = 0): { from: n
  * Reset ALL counters (ADMIN ONLY)
  * Use with extreme caution - this is typically only for new fiscal year or audit reset
  */
-export function resetAllCounters(): void {
-    saveReceiptCounters({ ...DEFAULT_COUNTERS });
+export async function resetAllCounters(): Promise<void> {
+    await saveReceiptCounters({ ...DEFAULT_COUNTERS });
 }
 
 /**
  * Get audit summary for all counters
- * Returns current state of all counters for owner review
  */
-export function getCounterAuditSummary(): {
+export async function getCounterAuditSummary(): Promise<{
     type: ReceiptType;
     prefix: string;
     lastNumber: number;
     lastPrintedAt: string | null;
     nextNumber: string;
-}[] {
-    const counters = getReceiptCounters();
+}[]> {
+    const counters = await getReceiptCounters();
 
     return (Object.keys(counters) as ReceiptType[]).map(type => ({
         type,
@@ -181,4 +209,3 @@ export const RECEIPT_TYPE_LABELS: Record<ReceiptType, string> = {
     kantin_tamu: 'Kantin Tamu',
     kantin_nontamu: 'Kantin Non-Tamu',
 };
-

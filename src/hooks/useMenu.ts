@@ -3,10 +3,10 @@ import {
   MenuRecord,
   getAllMenus,
   initializeMenus,
+  clearAllMenus,
   addMenu as dbAddMenu,
   updateMenu as dbUpdateMenu,
   deleteMenu as dbDeleteMenu,
-  initDB,
 } from '@/lib/db';
 import { defaultMenuItems } from '@/data/menuData';
 import { MenuCategory } from '@/types/hotel';
@@ -18,6 +18,7 @@ export interface UseMenuReturn {
   addMenuItem: (item: Omit<MenuRecord, 'id' | 'is_active'>) => Promise<MenuRecord>;
   updateMenuItem: (id: string, updates: Partial<MenuRecord>) => Promise<void>;
   deleteMenuItem: (id: string) => Promise<void>;
+  resetMenu: () => Promise<void>;
   getMenuByCategory: (category: MenuCategory) => MenuRecord[];
   refreshMenu: () => Promise<void>;
 }
@@ -48,8 +49,6 @@ export function useMenu(): UseMenuReturn {
     const init = async () => {
       setIsLoading(true);
       try {
-        await initDB();
-
         // Initialize menu if empty
         const initialMenus = convertMenuData();
         await initializeMenus(initialMenus);
@@ -130,6 +129,25 @@ export function useMenu(): UseMenuReturn {
     return menuItems.filter((item) => item.category === category);
   }, [menuItems]);
 
+  /**
+   * Reset menu to defaults (clear all + re-initialize from static data)
+   */
+  const resetMenu = useCallback(async (): Promise<void> => {
+    try {
+      // Clear all existing menus from IndexedDB
+      await clearAllMenus();
+      // Re-initialize with default menu data
+      const initialMenus = convertMenuData();
+      await initializeMenus(initialMenus);
+      // Refresh the UI state
+      await refreshMenu();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to reset menu';
+      setError(message);
+      throw err;
+    }
+  }, [refreshMenu]);
+
   return {
     menuItems,
     isLoading,
@@ -137,6 +155,7 @@ export function useMenu(): UseMenuReturn {
     addMenuItem,
     updateMenuItem,
     deleteMenuItem,
+    resetMenu,
     getMenuByCategory,
     refreshMenu,
   };

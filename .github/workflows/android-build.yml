@@ -1,0 +1,142 @@
+# ================================================================
+# Hotel Yonanda - Android APK Build Pipeline
+#
+# Triggers on push to main branch.
+# Builds web app, syncs to Capacitor Android, compiles signed APK.
+# Uploads signed APK as a downloadable GitHub Artifact.
+# ================================================================
+
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+env:
+  NODE_VERSION: '18'
+  JAVA_VERSION: '17'
+  ANDROID_API_LEVEL: '35'
+
+jobs:
+  build-apk:
+    name: Build & Sign APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ──────────────────────────────────
+      # 1. Checkout code
+      # ──────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ──────────────────────────────────
+      # 2. Setup Node.js + install deps
+      # ──────────────────────────────────
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # ──────────────────────────────────
+      # 3. Quality checks (catch bugs early)
+      # ──────────────────────────────────
+      - name: Lint check
+        run: npm run lint || true
+        # Non-blocking for now; change to `npm run lint` (no || true) to enforce
+
+      - name: TypeScript build check
+        run: npx tsc --noEmit || true
+        # Validates types without emitting
+
+      # ──────────────────────────────────
+      # 4. Build web app (Vite)
+      # ──────────────────────────────────
+      - name: Build web app
+        run: npm run build
+
+      # ──────────────────────────────────
+      # 5. Sync Capacitor → Android
+      # ──────────────────────────────────
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      # ──────────────────────────────────
+      # 6. Setup Java JDK 17
+      # ──────────────────────────────────
+      - name: Setup JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # ──────────────────────────────────
+      # 7. Setup Android SDK
+      # ──────────────────────────────────
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # ──────────────────────────────────
+      # 8. Cache Gradle dependencies
+      # ──────────────────────────────────
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # ──────────────────────────────────
+      # 9. Decode keystore from secret
+      # ──────────────────────────────────
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android/app/release-key.jks
+
+      # ──────────────────────────────────
+      # 10. Build release APK
+      # ──────────────────────────────────
+      - name: Build release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/app/release-key.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      # ──────────────────────────────────
+      # 11. Rename APK with version info
+      # ──────────────────────────────────
+      - name: Rename APK
+        run: |
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          TIMESTAMP=$(date +%Y%m%d-%H%M)
+          SHORT_SHA=${GITHUB_SHA::7}
+          cp "$APK_PATH" "hotel-yonanda-${TIMESTAMP}-${SHORT_SHA}.apk"
+          echo "APK_NAME=hotel-yonanda-${TIMESTAMP}-${SHORT_SHA}.apk" >> $GITHUB_ENV
+
+      # ──────────────────────────────────
+      # 12. Upload APK as artifact
+      # ──────────────────────────────────
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotel-yonanda-apk
+          path: ${{ env.APK_NAME }}
+          retention-days: 30
+
+      # ──────────────────────────────────
+      # 13. Cleanup keystore
+      # ──────────────────────────────────
+      - name: Cleanup keystore
+        if: always()
+        run: rm -f android/app/release-key.jks

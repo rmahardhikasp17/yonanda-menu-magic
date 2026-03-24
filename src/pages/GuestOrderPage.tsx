@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const GuestOrderPage = () => {
-  const { getOccupiedRooms } = useRooms();
+  const { occupiedRooms } = useRooms();
   const { getMenuByCategory } = useMenu();
   const { orderItems, addItem, removeItem, clearOrder, getTotal, getItemQuantity } = useOrder();
   const { getNextReceiptNumber } = useReceiptCounter();
@@ -24,14 +24,14 @@ const GuestOrderPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory>('nasi-goreng');
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
-  const occupiedRooms = getOccupiedRooms();
+
   const menuItems = getMenuByCategory(selectedCategory);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!selectedRoom || orderItems.length === 0) return;
 
     // Generate sequential receipt number for canteen guest orders
-    const receiptNumber = getNextReceiptNumber('kantin_tamu');
+    const receiptNumber = await getNextReceiptNumber('kantin_tamu');
 
     setReceipt({
       receiptNumber,

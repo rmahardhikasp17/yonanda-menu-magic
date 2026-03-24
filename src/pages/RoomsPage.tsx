@@ -4,7 +4,8 @@ import { useActiveGuest } from '@/hooks/useActiveGuest';
 import { useReceiptCounter } from '@/hooks/useReceiptCounter';
 import { RoomRecord, GuestRecord } from '@/lib/db';
 import { ReceiptData, PaymentMethod } from '@/types/hotel';
-import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
+import { getRoomTypeInfo } from '@/data/roomData';
+import { formatCurrency } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { RoomCard } from '@/components/RoomCard';
 import { Receipt } from '@/components/Receipt';
@@ -51,7 +52,7 @@ interface LegacyActiveGuest {
 }
 
 const RoomsPage = () => {
-  const { rooms, checkIn, checkOut, getOccupiedRooms, getAvailableRooms, refreshRooms } = useRooms();
+  const { rooms, checkIn, checkOut, occupiedRooms, availableRooms, refreshRooms } = useRooms();
   const { activeGuest, setGuest, selectExistingGuest, clearGuest, hasActiveGuest, getMaskedKtp } = useActiveGuest();
   const { getNextReceiptNumber } = useReceiptCounter();
 
@@ -61,8 +62,8 @@ const RoomsPage = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminGuestId, setAdminGuestId] = useState<string | null>(null);
 
-  const occupiedCount = getOccupiedRooms().length;
-  const availableCount = getAvailableRooms().length;
+  const occupiedCount = occupiedRooms.length;
+  const availableCount = availableRooms.length;
 
   // Convert RoomRecord to LegacyRoom for RoomCard
   const convertToLegacyRoom = (room: RoomRecord): LegacyRoom => ({
@@ -169,7 +170,7 @@ const RoomsPage = () => {
       const typeInfo = getRoomTypeInfo(checkedOutRoom.room_type);
 
       // Generate sequential receipt number for checkout
-      const receiptNumber = getNextReceiptNumber('checkout');
+      const receiptNumber = await getNextReceiptNumber('checkout');
 
       setReceipt({
         receiptNumber,
@@ -243,7 +244,7 @@ const RoomsPage = () => {
 
       {/* Room Grid */}
       <main className="container px-4 pb-8">
-        <div className="grid grid-cols-4 gap-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 tablet:grid-cols-9 tablet-lg:grid-cols-11 lg:grid-cols-10 xl:grid-cols-11">
           {legacyRooms.map((room) => (
             <RoomCard key={room.number} room={room} onClick={handleRoomClick} />
           ))}

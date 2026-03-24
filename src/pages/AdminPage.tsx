@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMenu } from '@/hooks/useMenu';
 import { MenuItem, MenuCategory } from '@/types/hotel';
 import { menuCategories } from '@/data/menuData';
-import { formatCurrency } from '@/data/roomData';
+import { formatCurrency } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { CategoryCard } from '@/components/CategoryCard';
 import { Footer } from '@/components/Footer';

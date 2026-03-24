@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   RoomRecord,
   getAllRooms,
@@ -10,7 +10,6 @@ import {
   getAvailableRooms as dbGetAvailableRooms,
   getOccupiedRooms as dbGetOccupiedRooms,
   getRoomsByGuestId,
-  initDB,
 } from '@/lib/db';
 import { roomTypesData } from '@/data/roomData';
 import { RoomType } from '@/types/hotel';
@@ -22,8 +21,8 @@ export interface UseRoomsReturn {
   checkIn: (guestId: string, roomNumbers: string[]) => Promise<RoomRecord[]>;
   checkOut: (roomNumber: string) => Promise<{ room: RoomRecord; guestId: string | null }>;
   getRoom: (roomNumber: string) => Promise<RoomRecord | null>;
-  getOccupiedRooms: () => RoomRecord[];
-  getAvailableRooms: () => RoomRecord[];
+  occupiedRooms: RoomRecord[];
+  availableRooms: RoomRecord[];
   getRoomsByGuest: (guestId: string) => Promise<RoomRecord[]>;
   refreshRooms: () => Promise<void>;
 }
@@ -62,8 +61,6 @@ export function useRooms(): UseRoomsReturn {
     const init = async () => {
       setIsLoading(true);
       try {
-        await initDB();
-
         // Initialize rooms if empty
         const initialRecords = generateInitialRoomRecords();
         await initializeRooms(initialRecords);
@@ -140,16 +137,16 @@ export function useRooms(): UseRoomsReturn {
   }, []);
 
   /**
-   * Get occupied rooms (from local state)
+   * Occupied rooms (memoized from local state)
    */
-  const getOccupiedRooms = useCallback((): RoomRecord[] => {
+  const occupiedRooms = useMemo(() => {
     return rooms.filter((r) => r.status === 'occupied');
   }, [rooms]);
 
   /**
-   * Get available rooms (from local state)
+   * Available rooms (memoized from local state)
    */
-  const getAvailableRooms = useCallback((): RoomRecord[] => {
+  const availableRooms = useMemo(() => {
     return rooms.filter((r) => r.status === 'available');
   }, [rooms]);
 
@@ -167,8 +164,8 @@ export function useRooms(): UseRoomsReturn {
     checkIn,
     checkOut,
     getRoom,
-    getOccupiedRooms,
-    getAvailableRooms,
+    occupiedRooms,
+    availableRooms,
     getRoomsByGuest,
     refreshRooms,
   };

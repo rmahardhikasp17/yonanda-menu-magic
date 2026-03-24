@@ -148,7 +148,7 @@ export function OwnerMenu({ onClose }: OwnerMenuProps) {
 
         setLoading(true);
         try {
-            const { from, to } = resetCounterValue(resetType, 0);
+            const { from, to } = await resetCounterValue(resetType, 0);
             await logResetEvent(resetType, from, to, resetReason.trim());
 
             setResetType(null);

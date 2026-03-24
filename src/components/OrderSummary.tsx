@@ -1,5 +1,5 @@
 import { OrderItem } from '@/types/hotel';
-import { formatCurrency } from '@/data/roomData';
+import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Trash2 } from 'lucide-react';
 

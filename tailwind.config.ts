@@ -7,12 +7,22 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: {
+        DEFAULT: "1rem",
+        sm: "1.5rem",
+        lg: "2rem",
+        tablet: "2rem",
+      },
       screens: {
+        "tablet": "800px",
         "2xl": "1400px",
       },
     },
     extend: {
+      screens: {
+        "tablet": "800px",
+        "tablet-lg": "1024px",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

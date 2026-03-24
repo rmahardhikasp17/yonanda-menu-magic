@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { ReceiptData } from '@/types/hotel';
-import { formatCurrency } from '@/data/roomData';
+import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';

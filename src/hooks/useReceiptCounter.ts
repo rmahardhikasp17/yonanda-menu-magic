@@ -1,7 +1,8 @@
 /**
  * React Hook for Receipt Counter Management
- * 
+ *
  * Use reserveNumber for preview, confirmNumber ONLY after successful print.
+ * All operations are async (IndexedDB backend).
  */
 
 import { useCallback } from 'react';
@@ -22,7 +23,7 @@ export function useReceiptCounter() {
      * Reserve (preview) next receipt number WITHOUT incrementing.
      * Use this for display on receipt preview before printing.
      */
-    const reserveNumber = useCallback((type: ReceiptType): string => {
+    const reserveNumber = useCallback(async (type: ReceiptType): Promise<string> => {
         return reserveReceiptNumber(type);
     }, []);
 
@@ -31,7 +32,7 @@ export function useReceiptCounter() {
      * This is the ONLY function that increments the counter.
      * Call this ONLY after the print dialog completes successfully.
      */
-    const confirmNumber = useCallback((type: ReceiptType): string => {
+    const confirmNumber = useCallback(async (type: ReceiptType): Promise<string> => {
         return confirmReceiptNumber(type);
     }, []);
 
@@ -39,7 +40,7 @@ export function useReceiptCounter() {
      * @deprecated Use reserveNumber + confirmNumber instead
      * Generate next receipt number (increments immediately)
      */
-    const getNextReceiptNumber = useCallback((type: ReceiptType): string => {
+    const getNextReceiptNumber = useCallback(async (type: ReceiptType): Promise<string> => {
         return generateReceiptNumber(type);
     }, []);
 
@@ -47,22 +48,22 @@ export function useReceiptCounter() {
      * Preview what the next number will be without incrementing
      * Alias for reserveNumber for backward compatibility
      */
-    const previewNextNumber = useCallback((type: ReceiptType): string => {
-        const current = getCurrentCounterValue(type);
+    const previewNextNumber = useCallback(async (type: ReceiptType): Promise<string> => {
+        const current = await getCurrentCounterValue(type);
         return `${RECEIPT_PREFIXES[type]}${(current + 1).toString().padStart(4, '0')}`;
     }, []);
 
     /**
      * Get current counter value (last printed number)
      */
-    const getCounter = useCallback((type: ReceiptType): number => {
+    const getCounter = useCallback(async (type: ReceiptType): Promise<number> => {
         return getCurrentCounterValue(type);
     }, []);
 
     /**
      * Get timestamp of last printed receipt
      */
-    const getLastPrinted = useCallback((type: ReceiptType): string | null => {
+    const getLastPrinted = useCallback(async (type: ReceiptType): Promise<string | null> => {
         return getLastPrintedAt(type);
     }, []);
 
@@ -70,14 +71,14 @@ export function useReceiptCounter() {
      * Reset counter (requires PIN verification in calling component)
      * Returns { from, to } for audit logging
      */
-    const resetCounterValue = useCallback((type: ReceiptType, newValue?: number): { from: number; to: number } => {
+    const resetCounterValue = useCallback(async (type: ReceiptType, newValue?: number): Promise<{ from: number; to: number }> => {
         return resetCounter(type, newValue);
     }, []);
 
     /**
      * Get audit summary for all counters
      */
-    const getAuditSummary = useCallback(() => {
+    const getAuditSummary = useCallback(async () => {
         return getCounterAuditSummary();
     }, []);
 
@@ -103,4 +104,3 @@ export function useReceiptCounter() {
         getTypeLabel,
     };
 }
-

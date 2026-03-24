@@ -269,3 +269,50 @@
     @apply min-h-[44px] min-w-[44px] transition-all duration-150 active:scale-95;
   }
 }
+
+/* ========================================
+   TABLET-OPTIMIZED CSS
+   Prevents "enlarged phone" look on tablets
+   ======================================== */
+
+/* Tablet breakpoint: 800px+ (8"–10" tablets) */
+@media (min-width: 800px) {
+  /* Larger touch targets for tablet POS use */
+  .touch-button {
+    min-height: 48px;
+    min-width: 48px;
+    font-size: 1rem;
+  }
+
+  .touch-card {
+    min-height: 64px;
+    padding: 1rem;
+  }
+
+  /* Larger room cards on tablet */
+  .room-card {
+    min-width: 80px;
+    min-height: 72px;
+    font-size: 1.125rem;
+  }
+
+  /* Order summary sidebar: fixed width on tablet */
+  .order-sidebar {
+    min-width: 320px;
+  }
+}
+
+/* Landscape-specific: maximize screen real estate */
+@media (min-width: 800px) and (orientation: landscape) {
+  /* Reduce page header padding */
+  header .container {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  /* Shrink logo on tablet landscape */
+  header img.h-24 {
+    height: 3.5rem;
+    width: 3.5rem;
+  }
+}

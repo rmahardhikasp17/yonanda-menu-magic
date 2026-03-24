@@ -10,7 +10,7 @@ import {
   setActiveGuestId,
   clearCheckoutState,
 } from '@/lib/storage';
-import { maskKtp } from '@/lib/validation';
+import { maskKtp } from '@/lib/utils';
 
 export interface UseActiveGuestReturn {
   activeGuest: GuestRecord | null;

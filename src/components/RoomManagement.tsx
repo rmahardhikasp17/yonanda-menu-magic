@@ -11,7 +11,8 @@
 import { useState, useEffect } from 'react';
 import { RoomRecord, getAllRooms, updateRoom, getRoom, generateId } from '@/lib/db';
 import { logRoomChange } from '@/lib/audit-log';
-import { roomTypesData, formatCurrency } from '@/data/roomData';
+import { roomTypesData } from '@/data/roomData';
+import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

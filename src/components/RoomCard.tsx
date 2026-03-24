@@ -1,6 +1,6 @@
 import { RoomType } from '@/types/hotel';
-import { getRoomTypeInfo, formatCurrency } from '@/data/roomData';
-import { cn } from '@/lib/utils';
+import { getRoomTypeInfo } from '@/data/roomData';
+import { formatCurrency, cn } from '@/lib/utils';
 
 // Room interface for RoomCard (simplified)
 interface RoomCardRoom {

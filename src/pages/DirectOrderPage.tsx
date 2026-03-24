@@ -21,11 +21,11 @@ const DirectOrderPage = () => {
 
   const menuItems = getMenuByCategory(selectedCategory);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (orderItems.length === 0) return;
 
     // Generate sequential receipt number for non-guest canteen orders
-    const receiptNumber = getNextReceiptNumber('kantin_nontamu');
+    const receiptNumber = await getNextReceiptNumber('kantin_nontamu');
 
     setReceipt({
       receiptNumber,
