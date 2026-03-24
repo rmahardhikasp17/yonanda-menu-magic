@@ -17,6 +17,7 @@ env:
   NODE_VERSION: '18'
   JAVA_VERSION: '17'
   ANDROID_API_LEVEL: '35'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build-apk:
@@ -98,7 +99,11 @@ jobs:
       # ──────────────────────────────────
       - name: Decode keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android/app/release-key.jks
+          if [ -z "${{ secrets.ANDROID_KEYSTORE }}" ]; then
+            echo "Error: ANDROID_KEYSTORE secret is empty or missing! Please add it to GitHub Secrets."
+            exit 1
+          fi
+          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -di > android/app/release-key.jks
 
       # ──────────────────────────────────
       # 10. Build release APK
