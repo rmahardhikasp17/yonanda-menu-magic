@@ -83,6 +83,7 @@ export function RoomManagement({ onBack }: RoomManagementProps) {
     // Load rooms
     useEffect(() => {
         loadRooms();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadRooms = async () => {

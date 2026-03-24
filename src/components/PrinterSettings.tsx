@@ -73,6 +73,7 @@ export function setPrinterSetupComplete(complete: boolean): void {
 /**
  * Print using the configured printer mode
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function printWithConfig(data: any): Promise<void> {
   const mode = getPrinterMode();
 
@@ -103,6 +104,7 @@ export function PrinterSettings({ onBack }: PrinterSettingsProps) {
   // Check setup status on mount
   useEffect(() => {
     checkSetupStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   const checkSetupStatus = async () => {

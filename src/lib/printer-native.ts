@@ -8,7 +8,7 @@
  * The import will fail in browser — that's expected (printer-bridge.ts handles routing).
  */
 
-// @ts-ignore — This package only exists when installed for Android build
+// @ts-expect-error — This package only exists when installed for Android build
 import { BluetoothSerial } from '@nicepaytech/capacitor-bluetooth-serial';
 import { ESC_POS, ReceiptPrintData } from './thermal-printer';
 

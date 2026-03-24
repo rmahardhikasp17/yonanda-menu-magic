@@ -345,7 +345,7 @@ async function printLineSerial(port: SerialPort, text: string): Promise<void> {
  */
 export async function printReceiptDirect(data: ReceiptPrintData): Promise<void> {
   // Try auto-connect first (no dialog)
-  let port = await autoConnectSerialPort();
+  const port = await autoConnectSerialPort();
 
   if (!port) {
     // No saved port - need setup first
@@ -696,6 +696,7 @@ export async function autoConnectBluetoothPrinter(): Promise<ThermalPrinterDevic
     // getDevices() returns previously granted devices WITHOUT showing dialog
     // This is supported on Chrome Android 85+
     if ('getDevices' in navigator.bluetooth) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const devices = await (navigator.bluetooth as any).getDevices();
 
       // Find matching device by ID
@@ -705,6 +706,7 @@ export async function autoConnectBluetoothPrinter(): Promise<ThermalPrinterDevic
         // Watch for advertisements to auto-connect
         if ('watchAdvertisements' in device) {
           try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (device as any).watchAdvertisements();
           } catch {
             // watchAdvertisements may not be supported, continue anyway
